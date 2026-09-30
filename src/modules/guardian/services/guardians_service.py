@@ -1,0 +1,19 @@
+from .guardian_account_service import check_account, create_account
+from .guardian_create_service import create
+from .guardian_delete_service import delete
+from .guardian_get_all_service import get_all
+from .guardian_get_by_id_service import get_by_id
+from .guardian_update_service import update
+
+
+class GuardianService:
+    create = staticmethod(create)
+    get_all = staticmethod(get_all)
+    get_by_id = staticmethod(get_by_id)
+    update = staticmethod(update)
+    delete = staticmethod(delete)
+    check_account = staticmethod(check_account)
+    create_account = staticmethod(create_account)
+
+
+guardianService = GuardianService()

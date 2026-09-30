@@ -1,0 +1,2 @@
+class ClaimValidationError(ValueError):
+    pass

@@ -1,0 +1,2 @@
+class ChildValidationError(ValueError):
+    pass

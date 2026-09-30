@@ -1,0 +1,2 @@
+class HealthFacilityValidationError(ValueError):
+    pass

@@ -1,0 +1,2 @@
+class UserRegionValidationError(ValueError):
+    pass

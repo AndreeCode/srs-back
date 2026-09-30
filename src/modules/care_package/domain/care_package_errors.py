@@ -1,0 +1,2 @@
+class CarePackageValidationError(ValueError):
+    pass

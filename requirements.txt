@@ -1,0 +1,7 @@
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+python-dotenv==1.2.3
+asyncpg==0.31.0
+argon2-cffi==25.1.0
+pyjwt==2.14.0
+python-multipart==0.0.32

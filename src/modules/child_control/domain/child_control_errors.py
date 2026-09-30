@@ -1,0 +1,2 @@
+class ChildControlValidationError(ValueError):
+    pass

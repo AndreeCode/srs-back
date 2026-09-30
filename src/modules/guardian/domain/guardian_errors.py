@@ -1,0 +1,2 @@
+class GuardianValidationError(ValueError):
+    pass
