@@ -8,3 +8,7 @@ class GuardianConflictError(ValueError):
 
 class GuardianChildNotFoundError(ValueError):
     pass
+
+
+class GuardianLinkRateLimitError(ValueError):
+    pass

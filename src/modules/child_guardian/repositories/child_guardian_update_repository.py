@@ -11,7 +11,7 @@ async def update_child_guardian(child_guardian: ChildGuardian) -> ChildGuardian 
             UPDATE child_guardian
             SET relationship = $1
             WHERE child_id = $2 AND guardian_id = $3
-            RETURNING child_id, guardian_id, relationship
+            RETURNING child_id, guardian_id, relationship, verified, requested_at, verified_by, verified_at
             """,
             child_guardian.relationship,
             child_guardian.child_id,

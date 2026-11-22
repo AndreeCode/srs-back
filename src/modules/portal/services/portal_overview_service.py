@@ -27,7 +27,20 @@ async def overview(user_id: UUID) -> dict:
     facilities = [f for f in await healthFacilityService.get_all(None) if f.id in facility_ids]
 
     known_dnis = {child.dni for child, _ in children if child.dni}
-    his_links = [link.to_dict() for link in await guardianHisChildService.get_all(guardian.id, None) if link.document_number not in known_dnis]
+    all_his_links = await guardianHisChildService.get_all(guardian.id, None)
+    his_links = [
+        link.to_dict() for link in all_his_links if link.verified and link.document_number not in known_dnis
+    ]
+    pending_links = [
+        {"source": "his", "identifier": f"****{link.document_number[-4:]}", "relationship": link.relationship,
+         "requested_at": link.created_at.isoformat() if link.created_at else None}
+        for link in all_his_links
+        if not link.verified
+    ] + [
+        {"source": "sicna", "identifier": f"****{(child.padron_code or child.dni or '')[-4:]}",
+         "relationship": relationship, "requested_at": requested_at.isoformat() if requested_at else None}
+        for child, relationship, requested_at in await portalRepository.get_pending_children_of_guardian(guardian.id)
+    ]
     his = {"children": [], "controls": []}
     his_error = None
     try:
@@ -44,6 +57,7 @@ async def overview(user_id: UUID) -> dict:
         + his["children"],
         "controls": [{**control.to_dict(), "source": "sicna"} for control in controls] + his["controls"],
         "his_error": his_error,
+        "pending_links": pending_links,
         "packages": [package.to_dict() for package in await carePackageService.get_all()],
         "services": [service.to_dict() for service in await careServiceService.get_all(None)],
         "facilities": [facility.to_dict() for facility in facilities],

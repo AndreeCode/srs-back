@@ -11,7 +11,8 @@ async def update_guardian_his_child(link: GuardianHisChild) -> GuardianHisChild 
             UPDATE guardian_his_children
             SET relationship = $3, child_name = $4
             WHERE guardian_id = $1 AND document_number = $2
-            RETURNING guardian_id, document_number, birth_date, relationship, child_name, linked_by, created_at
+            RETURNING guardian_id, document_number, birth_date, relationship, child_name, linked_by, created_at,
+                   verified, verified_by, verified_at
             """,
             link.guardian_id,
             link.document_number,

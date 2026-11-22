@@ -9,7 +9,8 @@ from ....core.config.config import config
 from ....core.db.sqlserver import SqlServerUnavailableError
 from ....core.http.error import error
 from ....core.http.succes import success
-from ...guardian.domain.guardian_errors import GuardianChildNotFoundError, GuardianConflictError
+from ....core.security.client_ip import client_ip
+from ...guardian.domain.guardian_errors import GuardianChildNotFoundError, GuardianConflictError, GuardianLinkRateLimitError
 from ..domain.portal_errors import PortalAccessError
 from ..services.portal_services import portalService
 
@@ -26,9 +27,12 @@ async def portal_link_child_handler(request: Request, body: PortalLinkChildReque
 
     try:
         data = await portalService.link_child(
-            UUID(request.state.user["sub"]), body.child_identifier, body.child_birth_date, body.relationship
+            UUID(request.state.user["sub"]), body.child_identifier, body.child_birth_date, body.relationship, client_ip(request)
         )
-        return success(201, f"{data['full_name']} fue vinculado a tu cuenta", data)
+        return success(201, data["message"], data)
+
+    except GuardianLinkRateLimitError as err:
+        return error(429, str(err), err)
 
     except PortalAccessError as err:
         return error(403, str(err), err)

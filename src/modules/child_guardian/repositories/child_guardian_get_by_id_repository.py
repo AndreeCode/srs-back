@@ -10,7 +10,7 @@ async def get_child_guardian_by_id(child_id: UUID, guardian_id: UUID) -> ChildGu
     try:
         row = await conn.fetchrow(
             """
-            SELECT child_id, guardian_id, relationship
+            SELECT child_id, guardian_id, relationship, verified, requested_at, verified_by, verified_at
             FROM child_guardian
             WHERE child_id = $1 AND guardian_id = $2
             """,

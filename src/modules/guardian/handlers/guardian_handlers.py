@@ -2,6 +2,11 @@ from .guardian_create_handler import create_guardian_handler
 from .guardian_delete_handler import delete_guardian_handler
 from .guardian_get_all_handler import get_all_guardians_handler
 from .guardian_get_by_id_handler import get_guardian_by_id_handler
+from .guardian_pending_link_handler import (
+    approve_pending_link_handler,
+    get_pending_links_handler,
+    reject_pending_link_handler,
+)
 from .guardian_update_handler import update_guardian_handler
 
 
@@ -11,6 +16,9 @@ class GuardianHandler:
     get_by_id = staticmethod(get_guardian_by_id_handler)
     update = staticmethod(update_guardian_handler)
     delete = staticmethod(delete_guardian_handler)
+    pending_links = staticmethod(get_pending_links_handler)
+    approve_link = staticmethod(approve_pending_link_handler)
+    reject_link = staticmethod(reject_pending_link_handler)
 
 
 guardianHandler = GuardianHandler()

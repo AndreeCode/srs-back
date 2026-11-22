@@ -14,8 +14,8 @@ async def login(request: Request, body: LoginRequest):
 
 
 @router.post("/register")
-async def register(body: RegisterRequest):
-    return await authHandler.register(body)
+async def register(request: Request, body: RegisterRequest):
+    return await authHandler.register(request, body)
 
 
 @router.post("/logout")

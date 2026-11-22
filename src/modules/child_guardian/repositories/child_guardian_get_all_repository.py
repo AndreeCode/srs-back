@@ -10,7 +10,7 @@ async def get_all_child_guardians(child_id: UUID | None, guardian_id: UUID | Non
     try:
         rows = await conn.fetch(
             """
-            SELECT child_id, guardian_id, relationship
+            SELECT child_id, guardian_id, relationship, verified, requested_at, verified_by, verified_at
             FROM child_guardian
             WHERE ($1::uuid IS NULL OR child_id = $1)
               AND ($2::uuid IS NULL OR guardian_id = $2)

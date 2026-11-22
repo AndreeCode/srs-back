@@ -6,7 +6,7 @@ from ..domain.guardian_domain import Guardian
 from ..domain.guardian_errors import GuardianConflictError
 from ..repositories.guardian_repositories import guardianRepository
 from .guardian_account_service import create_account
-from .guardian_link_child_service import attach_child, find_child, summary
+from .guardian_link_child_service import attach_child, find_child_self_service, pending_summary
 
 
 async def register(
@@ -18,6 +18,7 @@ async def register(
     child_identifier: str,
     child_birth_date: date,
     relationship: str,
+    ip: str | None = None,
 ) -> dict:
     guardian = await guardianRepository.get_by_dni(dni)
 
@@ -30,7 +31,7 @@ async def register(
     if await userService.get_by_username(dni) is not None:
         raise GuardianConflictError("Ya existe un usuario con este DNI, inicia sesion")
 
-    child = await find_child(child_identifier, child_birth_date)
+    child = await find_child_self_service(child_identifier, child_birth_date, ip, None)
 
     if guardian is None:
         guardian = await guardianRepository.create(
@@ -40,8 +41,8 @@ async def register(
     guardian = await create_account(guardian, dni, password)
 
     try:
-        linked = await attach_child(guardian, child, relationship)
+        await attach_child(guardian, child, relationship, verified=False)
     except GuardianConflictError:
-        linked = {**summary(child, relationship), "already_linked": True}
+        pass
 
-    return {"guardian": guardian.to_dict(), "username": dni, "child": linked}
+    return {"guardian": guardian.to_dict(), "username": dni, "child": pending_summary(child_identifier, relationship)}

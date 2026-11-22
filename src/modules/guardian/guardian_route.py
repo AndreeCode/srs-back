@@ -1,8 +1,11 @@
-from fastapi import APIRouter, Depends
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, Request
 
 from ...core.security.permission_guard import require_permission
 from .handlers.guardian_create_handler import GuardianCreateRequest
 from .handlers.guardian_handlers import guardianHandler
+from .handlers.guardian_pending_link_handler import PendingLinkRequest
 from .handlers.guardian_update_handler import GuardianUpdateRequest
 
 router = APIRouter(prefix="/guardians", tags=["guardians"])
@@ -16,6 +19,21 @@ async def create_guardian(body: GuardianCreateRequest):
 @router.get("", dependencies=[Depends(require_permission("guardian.get"))])
 async def get_all_guardians():
     return await guardianHandler.get_all()
+
+
+@router.get("/pending-links", dependencies=[Depends(require_permission("guardian.get"))])
+async def get_pending_links():
+    return await guardianHandler.pending_links()
+
+
+@router.post("/pending-links/approve", dependencies=[Depends(require_permission("guardian.put"))])
+async def approve_pending_link(request: Request, body: PendingLinkRequest):
+    return await guardianHandler.approve_link(UUID(request.state.user["sub"]), body)
+
+
+@router.post("/pending-links/reject", dependencies=[Depends(require_permission("guardian.put"))])
+async def reject_pending_link(body: PendingLinkRequest):
+    return await guardianHandler.reject_link(body)
 
 
 @router.get("/{guardian_id}", dependencies=[Depends(require_permission("guardian.get"))])

@@ -1,15 +1,18 @@
 from datetime import date
 from typing import Literal, Optional
 
+from fastapi import Request
 from pydantic import BaseModel, EmailStr, Field
 
 from ....core.config.config import config
 from ....core.db.sqlserver import SqlServerUnavailableError
 from ....core.http.error import error
 from ....core.http.succes import success
+from ....core.security.client_ip import client_ip
 from ...guardian.domain.guardian_errors import (
     GuardianChildNotFoundError,
     GuardianConflictError,
+    GuardianLinkRateLimitError,
     GuardianValidationError,
 )
 from ...guardian.services.guardians_service import guardianService
@@ -28,7 +31,7 @@ class RegisterRequest(BaseModel):
     relationship: Relationship = "Madre"
 
 
-async def register_handler(body: RegisterRequest):
+async def register_handler(request: Request, body: RegisterRequest):
     if not config.public_registration:
         return error(403, "El registro de padres lo hace por ahora tu establecimiento de salud (admin o coordinador)", PermissionError("PUBLIC_REGISTRATION=false"))
 
@@ -45,8 +48,12 @@ async def register_handler(body: RegisterRequest):
             child_identifier=body.child_identifier,
             child_birth_date=body.child_birth_date,
             relationship=body.relationship,
+            ip=client_ip(request),
         )
-        return success(201, "Cuenta creada correctamente, ya puedes iniciar sesion", data)
+        return success(201, f"Cuenta creada. {data['child']['message']}", data)
+
+    except GuardianLinkRateLimitError as err:
+        return error(429, str(err), err)
 
     except GuardianConflictError as err:
         return error(409, str(err), err)

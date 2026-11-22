@@ -1,4 +1,5 @@
 from datetime import date
+from uuid import UUID
 
 from ...child.domain.child_domain import Child
 from ...child.repositories.child_repositories import childRepository
@@ -10,6 +11,7 @@ from ...his.domain.his_domain import HisChild
 from ...his.services.his_service import hisService
 from ..domain.guardian_domain import Guardian
 from ..domain.guardian_errors import GuardianChildNotFoundError, GuardianConflictError
+from .guardian_link_guard_service import ensure_link_allowed, record_link_attempt
 
 
 async def find_child(identifier: str, birth_date: date) -> Child | HisChild:
@@ -50,7 +52,17 @@ def summary(child: Child | HisChild, relationship: str) -> dict:
     }
 
 
-async def attach_child(guardian: Guardian, child: Child | HisChild, relationship: str) -> dict:
+def pending_summary(identifier: str, relationship: str) -> dict:
+    tail = identifier.strip()[-4:]
+    return {
+        "status": "pending",
+        "identifier": f"****{tail}",
+        "relationship": relationship,
+        "message": "Tu solicitud quedo pendiente: el establecimiento de salud verificara que eres el padre o apoderado",
+    }
+
+
+async def attach_child(guardian: Guardian, child: Child | HisChild, relationship: str, verified: bool = True) -> dict:
     if isinstance(child, HisChild):
         created = await guardianHisChildRepository.create(
             GuardianHisChild(
@@ -59,6 +71,7 @@ async def attach_child(guardian: Guardian, child: Child | HisChild, relationship
                 birth_date=child.birth_date,
                 relationship=relationship,
                 linked_by=guardian.user_id,
+                verified=verified,
             )
         )
         if created is None:
@@ -68,10 +81,33 @@ async def attach_child(guardian: Guardian, child: Child | HisChild, relationship
     if await childGuardianRepository.get_by_id(child.id, guardian.id) is not None:
         raise GuardianConflictError("Ese nino ya esta vinculado a tu cuenta")
 
-    await childGuardianRepository.create(ChildGuardian(child_id=child.id, guardian_id=guardian.id, relationship=relationship))
+    await childGuardianRepository.create(
+        ChildGuardian(child_id=child.id, guardian_id=guardian.id, relationship=relationship, verified=verified)
+    )
     return summary(child, relationship)
 
 
-async def link_child(guardian: Guardian, identifier: str, birth_date: date, relationship: str) -> dict:
-    child = await find_child(identifier, birth_date)
-    return await attach_child(guardian, child, relationship)
+async def find_child_self_service(identifier: str, birth_date: date, ip: str | None, user_id: UUID | None) -> Child | HisChild:
+    await ensure_link_allowed(identifier, ip, user_id)
+
+    try:
+        child = await find_child(identifier, birth_date)
+    except GuardianChildNotFoundError:
+        await record_link_attempt(identifier, ip, user_id, False)
+        raise
+
+    await record_link_attempt(identifier, ip, user_id, True)
+    return child
+
+
+async def link_child_self_service(
+    guardian: Guardian, identifier: str, birth_date: date, relationship: str, ip: str | None
+) -> dict:
+    child = await find_child_self_service(identifier, birth_date, ip, guardian.user_id)
+
+    try:
+        await attach_child(guardian, child, relationship, verified=False)
+    except GuardianConflictError:
+        pass
+
+    return pending_summary(identifier, relationship)

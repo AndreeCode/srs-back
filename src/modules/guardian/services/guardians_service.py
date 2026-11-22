@@ -3,7 +3,7 @@ from .guardian_create_service import create
 from .guardian_delete_service import delete
 from .guardian_get_all_service import get_all
 from .guardian_get_by_id_service import get_by_id
-from .guardian_link_child_service import attach_child, find_child, link_child
+from .guardian_link_child_service import attach_child, find_child, link_child_self_service
 from .guardian_register_service import register
 from .guardian_update_service import update
 
@@ -18,7 +18,7 @@ class GuardianService:
     create_account = staticmethod(create_account)
     find_child = staticmethod(find_child)
     attach_child = staticmethod(attach_child)
-    link_child = staticmethod(link_child)
+    link_child_self_service = staticmethod(link_child_self_service)
     register = staticmethod(register)
 
 

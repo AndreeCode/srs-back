@@ -8,10 +8,11 @@ async def create_guardian_his_child(link: GuardianHisChild) -> GuardianHisChild 
     try:
         row = await conn.fetchrow(
             """
-            INSERT INTO guardian_his_children (guardian_id, document_number, birth_date, relationship, child_name, linked_by)
-            VALUES ($1, $2, $3, $4, $5, $6)
+            INSERT INTO guardian_his_children (guardian_id, document_number, birth_date, relationship, child_name, linked_by, verified)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
             ON CONFLICT (guardian_id, document_number) DO NOTHING
-            RETURNING guardian_id, document_number, birth_date, relationship, child_name, linked_by, created_at
+            RETURNING guardian_id, document_number, birth_date, relationship, child_name, linked_by, created_at,
+                   verified, verified_by, verified_at
             """,
             link.guardian_id,
             link.document_number,
@@ -19,6 +20,7 @@ async def create_guardian_his_child(link: GuardianHisChild) -> GuardianHisChild 
             link.relationship,
             link.child_name,
             link.linked_by,
+            link.verified,
         )
 
         return GuardianHisChild.from_row(row) if row else None

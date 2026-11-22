@@ -2,6 +2,7 @@ from uuid import UUID
 
 from ...child.services.children_service import childService
 from ...claim.domain.claim_domain import Claim
+from ...claim.domain.claim_errors import ClaimValidationError
 from ...claim.services.claims_service import claimService
 from ...claim_evidence.domain.claim_evidence_domain import ClaimEvidence
 from ...claim_evidence.services.claim_evidences_service import claimEvidenceService
@@ -22,8 +23,19 @@ async def list_claims(user_id: UUID) -> dict:
     }
 
 
+MAX_OPEN_CLAIMS_PER_CHILD = 3
+OPEN_STATUSES = ("pending", "in_review")
+
+
 async def create_claim(user_id: UUID, claim: Claim) -> Claim:
     guardian = await ensure_own_child(user_id, claim.child_id)
+    open_claims = [c for c in await claimService.get_all(claim.child_id, None, None) if c.status in OPEN_STATUSES]
+
+    if len(open_claims) >= MAX_OPEN_CLAIMS_PER_CHILD:
+        raise ClaimValidationError(
+            f"Tu hijo ya tiene {len(open_claims)} reclamos sin resolver. Espera la respuesta del establecimiento antes de enviar otro"
+        )
+
     child = await childService.get_by_id(claim.child_id)
 
     claim.requester_user_id = user_id
