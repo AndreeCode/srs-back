@@ -8,6 +8,14 @@ logger = logging.getLogger(__name__)
 
 
 INSECURE_SECRETS = ("dev-secret-change-me", "cambia-esto-por-una-clave-larga")
+JWT_ALGORITHMS = ("HS256", "HS384", "HS512")
+SSL_MODES = ("disable", "prefer", "require", "verify-ca", "verify-full")
+MSSQL_ENCRYPTION_MODES = ("off", "request", "require")
+LOCAL_HOSTS = ("127.0.0.1", "localhost", "::1")
+
+
+def is_local(host: str) -> bool:
+    return host in LOCAL_HOSTS or host.startswith("/")
 
 
 class Config:
@@ -16,6 +24,7 @@ class Config:
     dbname: str = os.getenv("DB_NAME", "sicna")
     dbuser: str = os.getenv("DB_USER", "postgres")
     dbpassword: str = os.getenv("DB_PASSWORD", "")
+    db_sslmode: str = os.getenv("DB_SSLMODE", "prefer").strip().lower()
 
     jwt_secret: str = os.getenv("JWT_SECRET", "")
     jwt_algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
@@ -35,6 +44,7 @@ class Config:
     mssql_db: str = os.getenv("MSSQL_DB", "BDHIS_MINSA")
     mssql_user: str = os.getenv("MSSQL_USER", "")
     mssql_password: str = os.getenv("MSSQL_PASSWORD", "")
+    mssql_encryption: str = os.getenv("MSSQL_ENCRYPTION", "require").strip().lower()
 
     public_registration: bool = os.getenv("PUBLIC_REGISTRATION", "false").lower() == "true"
 
@@ -52,6 +62,16 @@ class Config:
             found.append("JWT_SECRET debe tener al menos 32 caracteres")
         if not self.dbpassword:
             found.append("DB_PASSWORD no esta configurado")
+        if self.jwt_algorithm not in JWT_ALGORITHMS:
+            found.append(f"JWT_ALGORITHM debe ser uno de: {', '.join(JWT_ALGORITHMS)}")
+        if self.db_sslmode not in SSL_MODES:
+            found.append(f"DB_SSLMODE debe ser uno de: {', '.join(SSL_MODES)}")
+        elif self.is_production and not is_local(self.dbhost) and self.db_sslmode in ("disable", "prefer"):
+            found.append("DB_SSLMODE debe ser require, verify-ca o verify-full si la BD esta en otro servidor")
+        if self.mssql_encryption not in MSSQL_ENCRYPTION_MODES:
+            found.append(f"MSSQL_ENCRYPTION debe ser uno de: {', '.join(MSSQL_ENCRYPTION_MODES)}")
+        elif self.is_production and not is_local(self.mssql_host) and self.mssql_encryption != "require":
+            found.append("MSSQL_ENCRYPTION debe ser require si HIS-MINSA esta en otro servidor")
         return found
 
     def ensure_valid(self) -> None:

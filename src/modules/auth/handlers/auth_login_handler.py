@@ -11,7 +11,7 @@ from ....core.http.succes import success
 from ....core.security.client_ip import client_ip
 from ....core.security.cookies import DEVICE_TOKEN_COOKIE, set_auth_cookie, set_device_cookie
 from ....core.security.jwt import create_access_token
-from ....core.security.password import verify_password
+from ....core.security.password import hash_password, needs_rehash, verify_password
 from ....core.security.tokens import generate_token, hash_token
 from ....core.logger.logger import logger
 from ...device.services.devices_service import deviceService
@@ -19,6 +19,7 @@ from ...role.services.roles_service import roleService
 from ...security_alert.services.security_alerts_service import securityAlertService
 from ...session.domain.session_domain import Session
 from ...session.services.sessions_service import sessionService
+from ...user.repositories.user_repositories import userRepository
 from ...user.services.users_service import userService
 
 
@@ -54,6 +55,9 @@ async def login_handler(request: Request, body: LoginRequest):
             return error(403, f"{what}{reason}", ValueError(f"device_id={device.id}"))
 
         set_audit_context(device_id=str(device.id))
+
+        if needs_rehash(user.password_hash):
+            await userRepository.rehash_password(user.id, hash_password(body.password))
 
         session_id = uuid4()
         token = create_access_token(

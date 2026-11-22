@@ -29,6 +29,7 @@ def connection_params() -> dict:
     return {
         "host": os.getenv("DB_HOST", "localhost"),
         "port": int(os.getenv("DB_PORT", "5432")),
+        "ssl": os.getenv("DB_SSLMODE", "prefer").strip().lower(),
         "database": os.getenv("DB_NAME", "sicna"),
         "user": user,
         "password": password,

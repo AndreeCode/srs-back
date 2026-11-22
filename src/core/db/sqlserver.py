@@ -30,6 +30,7 @@ def _fetch(query: str, params: tuple) -> list[dict]:
             timeout=20,
             charset="UTF-8",
             as_dict=True,
+            encryption=config.mssql_encryption,
         )
     except pymssql.Error as err:
         raise SqlServerUnavailableError("No se pudo conectar con HIS-MINSA (SQL Server)") from err
