@@ -1,3 +1,4 @@
+import hashlib
 from pathlib import PurePath
 from uuid import UUID, uuid4
 
@@ -55,6 +56,7 @@ async def create(claim_id: UUID, original_name: str, content: bytes) -> ClaimEvi
                 storage_path=storage_path,
                 mime_type=mime_type,
                 size_bytes=len(content),
+                sha256=hashlib.sha256(content).hexdigest(),
             )
         )
     except Exception:

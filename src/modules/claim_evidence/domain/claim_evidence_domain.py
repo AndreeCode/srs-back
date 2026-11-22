@@ -16,6 +16,7 @@ class ClaimEvidence:
     mime_type: str
     size_bytes: int
     created_at: Optional[datetime] = None
+    sha256: Optional[str] = None
 
     @classmethod
     def from_row(cls, row) -> "ClaimEvidence":
@@ -27,6 +28,7 @@ class ClaimEvidence:
             mime_type=row["mime_type"],
             size_bytes=row["size_bytes"],
             created_at=row["created_at"],
+            sha256=row["sha256"].strip() if row["sha256"] else None,
         )
 
     def to_dict(self) -> dict:
@@ -37,4 +39,5 @@ class ClaimEvidence:
             "mime_type": self.mime_type,
             "size_bytes": self.size_bytes,
             "created_at": self.created_at.isoformat() if self.created_at else None,
+            "sha256": self.sha256,
         }

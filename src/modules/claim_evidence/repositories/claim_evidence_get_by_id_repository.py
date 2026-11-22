@@ -10,7 +10,7 @@ async def get_claim_evidence_by_id(claim_evidence_id: UUID) -> ClaimEvidence | N
     try:
         row = await conn.fetchrow(
             """
-            SELECT id, claim_id, original_name, storage_path, mime_type, size_bytes, created_at
+            SELECT id, claim_id, original_name, storage_path, mime_type, size_bytes, created_at, sha256
             FROM claim_evidences
             WHERE id = $1
             """,

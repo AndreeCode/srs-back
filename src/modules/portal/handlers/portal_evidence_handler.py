@@ -7,9 +7,9 @@ from fastapi.responses import FileResponse
 from ....core.http.error import error
 from ....core.http.succes import success
 from ....core.http.uuid_param import InvalidUUIDError, parse_uuid
-from ....core.storage.file_storage import resolve_path
 from ...claim_evidence.domain.claim_evidence_domain import MAX_EVIDENCE_BYTES
-from ...claim_evidence.domain.claim_evidence_errors import ClaimEvidenceValidationError
+from ...claim_evidence.domain.claim_evidence_errors import ClaimEvidenceIntegrityError, ClaimEvidenceValidationError
+from ...claim_evidence.services.claim_evidences_service import claimEvidenceService
 from ..domain.portal_errors import PortalNotFoundError
 from ..services.portal_services import portalService
 
@@ -48,15 +48,17 @@ async def portal_evidence_download_handler(request: Request, claim_evidence_id: 
         evidence = await portalService.get_evidence(
             UUID(request.state.user["sub"]), parse_uuid(claim_evidence_id, "claim_evidence_id")
         )
-        path = resolve_path(evidence.storage_path)
-
-        if not path.is_file():
-            return error(404, "El archivo de la evidencia no existe", FileNotFoundError(str(path)))
-
+        path = await claimEvidenceService.verified_path(evidence)
         return FileResponse(path, media_type=evidence.mime_type, filename=evidence.original_name)
 
     except InvalidUUIDError as err:
         return error(400, str(err), err)
+
+    except FileNotFoundError as err:
+        return error(404, "El archivo de la evidencia no existe", err)
+
+    except ClaimEvidenceIntegrityError as err:
+        return error(409, str(err), err)
 
     except PortalNotFoundError as err:
         return error(404, str(err), err)
