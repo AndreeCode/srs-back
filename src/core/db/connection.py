@@ -16,6 +16,8 @@ async def get_connection():
         user=config.dbuser,
         password=config.dbpassword,
         ssl=config.db_sslmode,
+        timeout=10,
+        command_timeout=60,
     )
 
     audit_context = get_audit_context()

@@ -5,7 +5,7 @@ from ...user.services.users_service import userService
 from ..domain.guardian_domain import Guardian
 from ..domain.guardian_errors import GuardianConflictError
 from ..repositories.guardian_repositories import guardianRepository
-from .guardian_account_service import create_account
+from .guardian_account_service import create_account, validate_new_account
 from .guardian_link_child_service import attach_child, find_child_self_service, pending_summary
 
 
@@ -31,18 +31,24 @@ async def register(
     if await userService.get_by_username(dni) is not None:
         raise GuardianConflictError("Ya existe un usuario con este DNI, inicia sesion")
 
+    await validate_new_account(guardian, dni, dni, password)
     child = await find_child_self_service(child_identifier, child_birth_date, ip, None)
 
-    if guardian is None:
+    is_new = guardian is None
+    if is_new:
         guardian = await guardianRepository.create(
             Guardian(id=uuid4(), full_name=full_name, dni=dni, phone=phone, email=email)
         )
 
-    guardian = await create_account(guardian, dni, password)
-
     try:
-        await attach_child(guardian, child, relationship, verified=False)
-    except GuardianConflictError:
-        pass
+        try:
+            await attach_child(guardian, child, relationship, verified=False)
+        except GuardianConflictError:
+            pass
+        guardian = await create_account(guardian, dni, password)
+    except Exception:
+        if is_new:
+            await guardianRepository.discard_new(guardian.id)
+        raise
 
     return {"guardian": guardian.to_dict(), "username": dni, "child": pending_summary(child_identifier, relationship)}

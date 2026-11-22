@@ -1,4 +1,5 @@
-from .guardian_account_service import check_account, create_account
+from .guardian_account_service import check_account, create_account, validate_new_account
+from ..repositories.guardian_repositories import guardianRepository
 from .guardian_create_service import create
 from .guardian_delete_service import delete
 from .guardian_get_all_service import get_all
@@ -16,6 +17,8 @@ class GuardianService:
     delete = staticmethod(delete)
     check_account = staticmethod(check_account)
     create_account = staticmethod(create_account)
+    validate_new_account = staticmethod(validate_new_account)
+    discard_new = staticmethod(guardianRepository.discard_new)
     find_child = staticmethod(find_child)
     attach_child = staticmethod(attach_child)
     link_child_self_service = staticmethod(link_child_self_service)

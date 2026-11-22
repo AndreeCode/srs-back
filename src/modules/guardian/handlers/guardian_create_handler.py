@@ -29,7 +29,7 @@ async def create_guardian_handler(body: GuardianCreateRequest):
         if with_account:
             if body.user_id is not None:
                 return error(400, "Elige una cuenta existente o crea una nueva, no ambas", ValueError("user_id+account"))
-            await guardianService.check_account(None, body.account_username)
+            await guardianService.validate_new_account(None, body.dni, body.account_username, body.account_password)
 
         guardian = Guardian(
             id=uuid4(),
@@ -43,7 +43,11 @@ async def create_guardian_handler(body: GuardianCreateRequest):
         created = await guardianService.create(guardian)
 
         if with_account:
-            created = await guardianService.create_account(created, body.account_username, body.account_password)
+            try:
+                created = await guardianService.create_account(created, body.account_username, body.account_password)
+            except Exception:
+                await guardianService.discard_new(created.id)
+                raise
             return success(201, "Padre registrado con su cuenta del portal", created.to_dict())
 
         return success(201, "Apoderado creado correctamente", created.to_dict())

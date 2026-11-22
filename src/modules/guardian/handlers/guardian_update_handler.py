@@ -47,7 +47,7 @@ async def update_guardian_handler(guardian_id: str, body: GuardianUpdateRequest)
         with_account = bool(body.account_username and body.account_password)
 
         if with_account:
-            await guardianService.check_account(guardian, body.account_username)
+            await guardianService.validate_new_account(guardian, guardian.dni, body.account_username, body.account_password)
 
         updated = await guardianService.update(guardian, current)
 
@@ -55,7 +55,14 @@ async def update_guardian_handler(guardian_id: str, body: GuardianUpdateRequest)
             return error(404, "Apoderado no encontrado", ValueError(f"guardian_id={guardian_id}"))
 
         if with_account:
-            updated = await guardianService.create_account(updated, body.account_username, body.account_password)
+            try:
+                updated = await guardianService.create_account(updated, body.account_username, body.account_password)
+            except Exception as err:
+                return error(
+                    500,
+                    "Los datos del padre se guardaron, pero no se pudo crear la cuenta del portal. Intenta crearla de nuevo",
+                    err,
+                )
             return success(200, "Datos actualizados y cuenta del portal creada", updated.to_dict())
 
         return success(200, "Apoderado actualizado correctamente", updated.to_dict())

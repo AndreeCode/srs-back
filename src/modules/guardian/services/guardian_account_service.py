@@ -19,13 +19,17 @@ async def check_account(guardian: Guardian | None, username: str) -> None:
         raise GuardianValidationError(f"El usuario {username} ya existe, elige otro")
 
 
-async def create_account(guardian: Guardian, username: str, password: str) -> Guardian:
+async def validate_new_account(guardian: Guardian | None, dni: str | None, username: str, password: str) -> None:
     await check_account(guardian, username)
 
     try:
-        ensure_strong_password(password, username, guardian.dni)
+        ensure_strong_password(password, username, dni)
     except PasswordPolicyError as err:
         raise GuardianValidationError(str(err)) from err
+
+
+async def create_account(guardian: Guardian, username: str, password: str) -> Guardian:
+    await validate_new_account(guardian, guardian.dni, username, password)
 
     role = next((r for r in await roleService.get_all() if r.name == "guardian" and r.is_active), None)
 
