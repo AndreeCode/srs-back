@@ -1,0 +1,9 @@
+fastapi==0.141.1
+uvicorn[standard]==0.53.0
+python-dotenv==1.2.3
+asyncpg==0.31.0
+argon2-cffi==25.1.0
+pyjwt==2.15.0
+python-multipart==0.0.32
+pymssql==2.4.6
+email-validator==2.3.0
