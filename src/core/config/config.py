@@ -1,4 +1,5 @@
 from dotenv import load_dotenv
+import base64
 import hashlib
 import hmac
 import logging
@@ -20,18 +21,38 @@ def is_local(host: str) -> bool:
     return host in LOCAL_HOSTS or host.startswith("/")
 
 
+def _secret(key: str, default: str = "") -> str:
+    path = os.getenv(f"{key}_FILE")
+    if path:
+        try:
+            with open(path, encoding="utf-8") as source:
+                return source.read().strip()
+        except OSError as err:
+            raise RuntimeError(f"No se pudo leer {key}_FILE ({path}): {err}") from err
+    return os.getenv(key, default).strip()
+
+
 class Config:
     app_env: str = os.getenv("APP_ENV", "development").strip().lower()
     dbhost: str = os.getenv("DB_HOST", "localhost")
     dbname: str = os.getenv("DB_NAME", "sicna")
     dbuser: str = os.getenv("DB_USER", "postgres")
-    dbpassword: str = os.getenv("DB_PASSWORD", "")
+    dbpassword: str = _secret("DB_PASSWORD")
     db_sslmode: str = os.getenv("DB_SSLMODE", "prefer").strip().lower()
 
-    jwt_secret: str = os.getenv("JWT_SECRET", "")
+    jwt_secret: str = _secret("JWT_SECRET")
     jwt_algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
     jwt_expire_minutes: int = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
-    audit_chain_key_env: str = os.getenv("AUDIT_CHAIN_KEY", "").strip()
+    audit_chain_key_env: str = _secret("AUDIT_CHAIN_KEY")
+
+    temp_password_hours: int = int(os.getenv("TEMP_PASSWORD_HOURS", "72"))
+    session_idle_minutes: int = int(os.getenv("SESSION_IDLE_MINUTES", "30"))
+    mfa_required: bool = os.getenv(
+        "MFA_REQUIRED", "true" if os.getenv("APP_ENV", "").strip().lower() == "production" else "false"
+    ).strip().lower() in ("1", "true", "yes", "si")
+    mfa_roles: set[str] = {r.strip() for r in os.getenv("MFA_ROLES", "admin,health_staff").split(",") if r.strip()}
+    mfa_issuer: str = os.getenv("MFA_ISSUER", "SICNA")
+    mfa_encryption_key_env: str = _secret("MFA_ENCRYPTION_KEY")
     cookie_secure: bool = (
         os.getenv("COOKIE_SECURE", "false").lower() == "true"
         or os.getenv("APP_ENV", "").strip().lower() == "production"
@@ -46,7 +67,7 @@ class Config:
     mssql_port: int = int(os.getenv("MSSQL_PORT", "1433"))
     mssql_db: str = os.getenv("MSSQL_DB", "BDHIS_MINSA")
     mssql_user: str = os.getenv("MSSQL_USER", "")
-    mssql_password: str = os.getenv("MSSQL_PASSWORD", "")
+    mssql_password: str = _secret("MSSQL_PASSWORD")
     mssql_encryption: str = os.getenv("MSSQL_ENCRYPTION", "require").strip().lower()
 
     public_registration: bool = os.getenv("PUBLIC_REGISTRATION", "false").lower() == "true"
@@ -64,6 +85,13 @@ class Config:
         if self.audit_chain_key_env:
             return self.audit_chain_key_env
         return hmac.new(self.jwt_secret.encode(), b"audit-chain-v1", hashlib.sha256).hexdigest()
+
+    @property
+    def mfa_key(self) -> bytes:
+        if self.mfa_encryption_key_env:
+            raw = self.mfa_encryption_key_env
+            return base64.urlsafe_b64decode(raw + "=" * (-len(raw) % 4))
+        return hmac.new(self.jwt_secret.encode(), b"mfa-secret-box-v1", hashlib.sha256).digest()
 
     def problems(self) -> list[str]:
         found = []
@@ -89,6 +117,14 @@ class Config:
             found.append("AUDIT_CHAIN_KEY debe tener al menos 32 caracteres")
         elif self.is_production and not self.audit_chain_key_env:
             found.append("AUDIT_CHAIN_KEY es obligatorio en produccion (clave del HMAC de la cadena de auditoria)")
+        if self.mfa_encryption_key_env:
+            try:
+                if len(self.mfa_key) != 32:
+                    found.append("MFA_ENCRYPTION_KEY debe decodificar a 32 bytes (base64)")
+            except ValueError:
+                found.append("MFA_ENCRYPTION_KEY no es base64 valido")
+        elif self.is_production:
+            found.append("MFA_ENCRYPTION_KEY es obligatorio en produccion (python -m scripts.backup_key --generate sirve para crearla)")
         return found
 
     def ensure_valid(self) -> None:

@@ -36,6 +36,8 @@ async def update(caller_id: UUID, user: User, current: User) -> User | None:
     if updated is not None:
         if user.password_hash != current.password_hash:
             await sessionRepository.revoke_all_of_user(current.id, "password_reset")
+            if not is_self:
+                await userRepository.mark_temporary(current.id)
         elif (user.blocked and not current.blocked) or (current.active and not user.active):
             await sessionRepository.revoke_all_of_user(current.id, "user_blocked" if user.blocked else "user_deactivated")
 

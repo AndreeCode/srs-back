@@ -13,4 +13,9 @@ async def create(user: User, caller_id: UUID | None = None) -> User:
     if caller_id is not None:
         await ensure_can_assign(caller_id, await roleService.get_by_id(user.role_id))
 
-    return await userRepository.create(user)
+    created = await userRepository.create(user)
+
+    if caller_id is not None:
+        await userRepository.mark_temporary(created.id)
+
+    return created

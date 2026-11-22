@@ -126,7 +126,8 @@ DECLARE
     v_ip_address INET;
     v_user_agent TEXT;
 BEGIN
-    IF p_action NOT IN ('LOGIN', 'LOGIN_FAILED', 'LOGOUT', 'PASSWORD_CHANGED', 'ACCOUNT_LOCKED') THEN
+    IF p_action NOT IN ('LOGIN', 'LOGIN_FAILED', 'LOGOUT', 'PASSWORD_CHANGED', 'ACCOUNT_LOCKED', 'MFA_ENABLED',
+                        'MFA_DISABLED', 'MFA_RESET', 'MFA_FAILED', 'SESSION_IDLE', 'SESSION_REVOKED') THEN
         RAISE EXCEPTION 'Accion de autenticacion no permitida: %', p_action;
     END IF;
 

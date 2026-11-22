@@ -56,7 +56,7 @@ async def update_guardian_handler(guardian_id: str, body: GuardianUpdateRequest)
 
         if with_account:
             try:
-                updated = await guardianService.create_account(updated, body.account_username, body.account_password)
+                updated = await guardianService.create_account(updated, body.account_username, body.account_password, temporary=True)
             except Exception as err:
                 return error(
                     500,

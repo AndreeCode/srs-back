@@ -12,7 +12,9 @@ from ....core.http.error import error
 from ....core.http.succes import success
 from ....core.security.client_ip import client_ip
 from ....core.security.cookies import DEVICE_TOKEN_COOKIE, set_auth_cookie, set_device_cookie
-from ....core.security.jwt import create_access_token
+from jwt import PyJWTError
+
+from ....core.security.jwt import create_access_token, create_mfa_token, decode_mfa_token
 from ....core.security.password import burn_password_check, hash_password, needs_rehash, verify_password
 from ....core.security.tokens import generate_token, hash_token
 from ....core.logger.logger import logger
@@ -24,6 +26,7 @@ from ...session.services.sessions_service import sessionService
 from ...user.repositories.user_repositories import userRepository
 from ...user.services.users_service import userService
 from ..repositories.auth_event_repository import log_auth_event
+from ..services import auth_mfa_service as mfa
 from ...security_alert.services.security_alerts_service import securityAlertService as alerts
 from .login_rate_limiter import allow_login_attempt, register_unknown_login_failure, unknown_login_locked_until
 
@@ -31,6 +34,11 @@ from .login_rate_limiter import allow_login_attempt, register_unknown_login_fail
 class LoginRequest(BaseModel):
     username: str = Field(min_length=1, max_length=150)
     password: str = Field(min_length=1, max_length=128)
+
+
+class MfaLoginRequest(BaseModel):
+    mfa_token: str = Field(min_length=10, max_length=2000)
+    code: str = Field(min_length=6, max_length=20)
 
 
 NIL_USER = UUID(int=0)
@@ -102,6 +110,60 @@ async def login_handler(request: Request, body: LoginRequest):
             await log_auth_event("LOGIN_FAILED", user.id, "blocked", {"reason": "blocked"})
             return error(403, f"La cuenta esta bloqueada{reason}", ValueError(f"user_id={user.id}"))
 
+        security = await userRepository.security(user.id)
+        expires = mfa.temp_password_expires_at(security)
+        if expires is not None and expires < datetime.now(timezone.utc):
+            await log_auth_event("LOGIN_FAILED", user.id, "blocked", {"reason": "temp_password_expired"})
+            return error(403, "Tu contrasena temporal vencio. Pide a un administrador que la restablezca", ValueError("temp expired"))
+
+        if security["mfa_enabled"]:
+            return success(
+                200,
+                "Ingresa el codigo de tu app autenticadora",
+                {"mfa_required": True, "mfa_token": create_mfa_token(str(user.id))},
+            )
+
+        return await start_session(request, user, body.password)
+
+    except Exception as err:
+        return error(500, "Error al iniciar sesion", err)
+
+
+async def mfa_login_handler(request: Request, body: MfaLoginRequest):
+    try:
+        ip = client_ip(request)
+        set_audit_context(ip=ip, user_agent=request.headers.get("user-agent"))
+        if not allow_login_attempt(ip):
+            return error(429, "Demasiados intentos de inicio de sesion, espera un minuto", ValueError("ip rate limit"))
+        try:
+            user_id = UUID(decode_mfa_token(body.mfa_token)["sub"])
+        except (PyJWTError, ValueError) as err:
+            return error(401, "La verificacion vencio, vuelve a ingresar tu usuario y contrasena", err)
+        user = await userService.get_by_id(user_id)
+        if user is None or not user.active or user.blocked:
+            return error(403, "La cuenta no esta habilitada", ValueError(f"user_id={user_id}"))
+        locked_until = await userRepository.locked_until(user.id)
+        if locked_until is not None:
+            return error(429, lock_message(locked_until), ValueError("locked"))
+        if not await mfa.verify_code(user.id, body.code):
+            locked_until = await userRepository.register_login_failure(
+                user.id, config.login_max_attempts, config.login_lock_minutes * 60
+            )
+            await log_auth_event("MFA_FAILED", user.id, "failed")
+            if locked_until is not None:
+                await log_auth_event("ACCOUNT_LOCKED", user.id, "blocked", {"reason": "mfa_guessing"})
+                await alerts.scan_auth(user.id)
+                return error(429, lock_message(locked_until), ValueError("mfa locked"))
+            return error(401, "El codigo de verificacion no es valido", ValueError("bad mfa code"))
+        await userRepository.reset_login_failures(user.id)
+        return await start_session(request, user, None)
+
+    except Exception as err:
+        return error(500, "Error al iniciar sesion", err)
+
+
+async def start_session(request: Request, user, password: str | None):
+    try:
         ip = client_ip(request)
         user_agent = request.headers.get("user-agent")
         set_audit_context(user_id=str(user.id), ip=ip, user_agent=user_agent)
@@ -117,8 +179,8 @@ async def login_handler(request: Request, body: LoginRequest):
 
         set_audit_context(device_id=str(device.id))
 
-        if needs_rehash(user.password_hash):
-            await userRepository.rehash_password(user.id, hash_password(body.password))
+        if password is not None and needs_rehash(user.password_hash):
+            await userRepository.rehash_password(user.id, hash_password(password))
 
         session_id = uuid4()
         token = create_access_token(

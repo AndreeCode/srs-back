@@ -59,7 +59,7 @@ async def set_user_password(user_id: UUID, password_hash: str) -> None:
 
     try:
         await conn.execute(
-            "UPDATE users SET password_hash = $2, password_changed_at = NOW(), failed_attempts = 0, locked_until = NULL WHERE id = $1",
+            "UPDATE users SET password_hash = $2, password_changed_at = NOW(), must_change_password = FALSE, failed_attempts = 0, locked_until = NULL WHERE id = $1",
             user_id,
             password_hash,
         )

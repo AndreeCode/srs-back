@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Request
 
 from ...core.security.permission_guard import require_permission
 from .handlers.user_create_handler import UserCreateRequest
+from ..auth.handlers.auth_mfa_handler import reset_user_mfa_handler
 from .handlers.user_handlers import userHandler
 from .handlers.user_update_handler import UserUpdateRequest
 
@@ -37,3 +38,8 @@ async def update_user(request: Request, user_id: str, body: UserUpdateRequest):
 @router.delete("/{user_id}", dependencies=[Depends(require_permission("user.delete"))])
 async def delete_user(request: Request, user_id: str):
     return await userHandler.delete(caller(request), user_id)
+
+
+@router.delete("/{user_id}/mfa", dependencies=[Depends(require_permission("user.put"))])
+async def reset_user_mfa(request: Request, user_id: str):
+    return await reset_user_mfa_handler(request, user_id)

@@ -10,6 +10,7 @@ from .user_login_lock_repository import (
     set_user_password,
 )
 from .user_rehash_password_repository import rehash_user_password
+from . import user_security_repository as security_repo
 from .user_update_repository import update_user
 
 
@@ -25,6 +26,13 @@ class UserRepository:
     register_login_failure = staticmethod(register_user_login_failure)
     reset_login_failures = staticmethod(reset_user_login_failures)
     set_password = staticmethod(set_user_password)
+    security = staticmethod(security_repo.get_user_security)
+    mark_temporary = staticmethod(security_repo.mark_password_temporary)
+    set_mfa_pending = staticmethod(security_repo.set_mfa_pending)
+    enable_mfa = staticmethod(security_repo.enable_mfa)
+    clear_mfa = staticmethod(security_repo.clear_mfa)
+    set_mfa_step = staticmethod(security_repo.set_mfa_step)
+    consume_recovery_code = staticmethod(security_repo.consume_recovery_code)
 
 
 userRepository = UserRepository()

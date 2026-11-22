@@ -1,4 +1,6 @@
-COMMON_PASSWORDS = frozenset(
+from pathlib import Path
+
+LOCAL_PASSWORDS = frozenset(
     {
         "12345678", "123456789", "1234567890", "12345678a", "123456789a", "a1234567", "a12345678",
         "abc12345", "abcd1234", "qwerty12", "qwerty123", "qwertyuiop", "asdf1234", "zxcvbnm1",
@@ -12,3 +14,12 @@ COMMON_PASSWORDS = frozenset(
         "padre123", "madre123", "coord123", "consulta123", "usuario123!", "admin123!", "padre123!",
     }
 )
+
+
+def _load_list() -> frozenset[str]:
+    path = Path(__file__).with_name("common_passwords.txt")
+    with open(path, encoding="utf-8") as source:
+        return frozenset(line.strip().lower() for line in source if line.strip())
+
+
+COMMON_PASSWORDS = LOCAL_PASSWORDS | _load_list()

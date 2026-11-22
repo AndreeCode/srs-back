@@ -5,6 +5,7 @@ from ....core.security.password import hash_password
 from ....core.security.password_policy import PasswordPolicyError, ensure_strong_password
 from ...role.services.roles_service import roleService
 from ...user.domain.user_domain import User
+from ...user.repositories.user_repositories import userRepository
 from ...user.services.users_service import userService
 from ..domain.guardian_domain import Guardian
 from ..domain.guardian_errors import GuardianValidationError
@@ -28,7 +29,7 @@ async def validate_new_account(guardian: Guardian | None, dni: str | None, usern
         raise GuardianValidationError(str(err)) from err
 
 
-async def create_account(guardian: Guardian, username: str, password: str) -> Guardian:
+async def create_account(guardian: Guardian, username: str, password: str, temporary: bool = False) -> Guardian:
     await validate_new_account(guardian, guardian.dni, username, password)
 
     role = next((r for r in await roleService.get_all() if r.name == "guardian" and r.is_active), None)
@@ -48,5 +49,8 @@ async def create_account(guardian: Guardian, username: str, password: str) -> Gu
             email=guardian.email,
         )
     )
+
+    if temporary:
+        await userRepository.mark_temporary(user.id)
 
     return await guardianRepository.update(replace(guardian, user_id=user.id))

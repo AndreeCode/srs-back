@@ -44,7 +44,7 @@ async def create_guardian_handler(body: GuardianCreateRequest):
 
         if with_account:
             try:
-                created = await guardianService.create_account(created, body.account_username, body.account_password)
+                created = await guardianService.create_account(created, body.account_username, body.account_password, temporary=True)
             except Exception:
                 await guardianService.discard_new(created.id)
                 raise

@@ -15,8 +15,6 @@ def password_problems(password: str | None, username: str | None = None, dni: st
     problems = []
     if len(value) > MAX_LENGTH:
         problems.append(f"La contrasena no debe superar {MAX_LENGTH} caracteres")
-    if not (any(c.isdigit() for c in value) and any(c.isalpha() for c in value)):
-        problems.append("La contrasena debe combinar letras y numeros")
     lowered = value.lower()
     if lowered in COMMON_PASSWORDS or lowered.rstrip("!.*#$@") in COMMON_PASSWORDS:
         problems.append("Esa contrasena es demasiado comun, elige otra")

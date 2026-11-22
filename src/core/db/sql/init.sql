@@ -438,10 +438,12 @@ BEGIN
         END LOOP;
     END IF;
 
-    v_old := v_old - 'password_hash' - 'token_hash';
-    v_new := v_new - 'password_hash' - 'token_hash';
+    v_old := v_old - 'password_hash' - 'token_hash' - 'mfa_secret' - 'mfa_pending_secret' - 'mfa_recovery_codes';
+    v_new := v_new - 'password_hash' - 'token_hash' - 'mfa_secret' - 'mfa_pending_secret' - 'mfa_recovery_codes';
 
-    IF TG_OP = 'UPDATE' AND (v_old - 'updated_at') = (v_new - 'updated_at') THEN
+    IF TG_OP = 'UPDATE'
+       AND (v_old - 'updated_at' - 'last_activity_at' - 'mfa_last_step' - 'failed_attempts' - 'locked_until')
+         = (v_new - 'updated_at' - 'last_activity_at' - 'mfa_last_step' - 'failed_attempts' - 'locked_until') THEN
         RETURN NEW;
     END IF;
 
