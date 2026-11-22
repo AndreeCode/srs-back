@@ -92,3 +92,11 @@ python -m scripts.reset             # vacía las tablas
 ```
 
 Con uv, antepón `uv run` a cada comando.
+
+## Docker
+
+```bash
+docker build -t sicna-backend .
+```
+
+La imagen corre uvicorn en `:8000` como usuario sin privilegios; las variables van por entorno (o `*_FILE` para secretos). Para levantar back + front juntos, usar `compose.yaml` en la raíz del proyecto (`../compose.yaml`).
