@@ -7,6 +7,10 @@ import asyncpg
 from scripts.migrate import connection_params
 
 
+def quote_ident(name: str) -> str:
+    return '"' + name.replace('"', '""') + '"'
+
+
 async def main(drop: bool, yes: bool, hint: bool = True) -> int:
     params = connection_params()
     try:
@@ -31,7 +35,7 @@ async def main(drop: bool, yes: bool, hint: bool = True) -> int:
     else:
         print("ALL DATA will be DELETED (tables are kept):")
         for t in tables:
-            n = await conn.fetchval(f'SELECT count(*) FROM "{t}"')
+            n = await conn.fetchval(f"SELECT count(*) FROM {quote_ident(t)}")
             print(f"  {t:<20} {n} rows")
 
     if not yes:
@@ -52,7 +56,7 @@ async def main(drop: bool, yes: bool, hint: bool = True) -> int:
                 await conn.execute("GRANT USAGE ON SCHEMA public TO PUBLIC")
             elif tables:
                 await conn.execute(
-                    "TRUNCATE " + ", ".join(f'"{t}"' for t in tables) + " RESTART IDENTITY CASCADE"
+                    "TRUNCATE " + ", ".join(quote_ident(t) for t in tables) + " RESTART IDENTITY CASCADE"
                 )
     except asyncpg.exceptions.InsufficientPrivilegeError:
         print(f"User {params['user']} lacks privileges. Use the schema owner (DB_ADMIN_USER in .env).")
