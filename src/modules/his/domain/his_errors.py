@@ -1,0 +1,2 @@
+class HisNotFoundError(LookupError):
+    pass

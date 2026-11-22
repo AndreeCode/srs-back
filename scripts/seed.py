@@ -12,6 +12,7 @@ from src.modules.claim.seeders.claim_seeder import seed_claims
 from src.modules.claim_evidence.seeders.claim_evidence_seeder import seed_claim_evidences
 from src.modules.guardian.seeders.guardian_seeder import seed_guardian_accounts, seed_guardians
 from src.modules.health_facility.seeders.health_facility_seeder import seed_health_facilities
+from src.modules.his.seeders.his_seeder import seed_his_rules
 from src.modules.permission.seeders.permission_seeder import seed_permissions
 from src.modules.region.seeders.region_seeder import seed_regions
 from src.modules.role.seeders.role_seeder import seed_roles
@@ -34,6 +35,7 @@ async def main(demo: bool = True) -> int:
 
             package_ids = await seed_care_packages(conn)
             service_ids = await seed_care_services(conn, package_ids)
+            await seed_his_rules(conn)
 
             if demo:
                 guardian_ids = await seed_guardians(conn, user_ids)

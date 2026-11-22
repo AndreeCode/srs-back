@@ -63,7 +63,12 @@ PERMISSIONS: dict[str, str] = {
     "security_alert.put": "Resolver o descartar alertas de riesgo",
     "security_alert.post": "Revisar la actividad en busca de riesgos",
     "portal.get": "Portal familiar: ver a sus propios hijos, sus controles y sus reclamos",
-    "portal.post": "Portal familiar: presentar reclamos y adjuntar evidencias sobre sus hijos",
+    "portal.post": "Portal familiar: presentar reclamos, adjuntar evidencias y vincular a sus hijos",
+    "his.get": "HIS-MINSA (SQL Server): buscar ninos por DNI/CNV y ver sus atenciones traducidas a prestaciones",
+    "guardian_his_child.get": "Ver los ninos de HIS-MINSA vinculados a cada padre",
+    "guardian_his_child.post": "Vincular un nino de HIS-MINSA a un padre",
+    "guardian_his_child.put": "Cambiar el nombre o el parentesco de un nino de HIS-MINSA vinculado",
+    "guardian_his_child.delete": "Desvincular un nino de HIS-MINSA de un padre (en HIS no se borra nada)",
 }
 
 PERMISSION_CODE_PATTERN = r"^[a-z_]+\.[a-z_]+(:[a-z_]+)?$"

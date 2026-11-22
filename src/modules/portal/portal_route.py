@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from ...core.security.permission_guard import require_permission
 from .handlers.portal_claims_handler import PortalClaimCreateRequest
 from .handlers.portal_handlers import portalHandler
+from .handlers.portal_link_child_handler import PortalLinkChildRequest
 
 router = APIRouter(prefix="/portal", tags=["portal"])
 
@@ -10,6 +11,11 @@ router = APIRouter(prefix="/portal", tags=["portal"])
 @router.get("", dependencies=[Depends(require_permission("portal.get"))])
 async def get_portal(request: Request):
     return await portalHandler.overview(request)
+
+
+@router.post("/children", dependencies=[Depends(require_permission("portal.post"))])
+async def link_portal_child(request: Request, body: PortalLinkChildRequest):
+    return await portalHandler.link_child(request, body)
 
 
 @router.get("/claims", dependencies=[Depends(require_permission("portal.get"))])

@@ -11,7 +11,9 @@ from ...modules.claim.claim_route import router as claim_router
 from ...modules.claim_evidence.claim_evidence_route import router as claim_evidence_router
 from ...modules.device.device_route import router as device_router
 from ...modules.guardian.guardian_route import router as guardian_router
+from ...modules.guardian_his_child.guardian_his_child_route import router as guardian_his_child_router
 from ...modules.health_facility.health_facility_route import router as health_facility_router
+from ...modules.his.his_route import router as his_router
 from ...modules.permission.permission_route import router as permission_router
 from ...modules.portal.portal_route import router as portal_router
 from ...modules.region.region_route import router as region_router
@@ -42,3 +44,5 @@ router.include_router(session_router)
 router.include_router(audit_log_router)
 router.include_router(portal_router)
 router.include_router(security_alert_router)
+router.include_router(his_router)
+router.include_router(guardian_his_child_router)

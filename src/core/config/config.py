@@ -20,6 +20,14 @@ class Config:
 
     upload_dir: str = os.getenv("UPLOAD_DIR", "uploads")
 
+    mssql_host: str = os.getenv("MSSQL_HOST", "127.0.0.1")
+    mssql_port: int = int(os.getenv("MSSQL_PORT", "1433"))
+    mssql_db: str = os.getenv("MSSQL_DB", "BDHIS_MINSA")
+    mssql_user: str = os.getenv("MSSQL_USER", "")
+    mssql_password: str = os.getenv("MSSQL_PASSWORD", "")
+
+    public_registration: bool = os.getenv("PUBLIC_REGISTRATION", "false").lower() == "true"
+
 
 config = Config()
 

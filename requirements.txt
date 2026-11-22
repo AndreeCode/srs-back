@@ -5,3 +5,5 @@ asyncpg==0.31.0
 argon2-cffi==25.1.0
 pyjwt==2.14.0
 python-multipart==0.0.32
+pymssql==2.4.6
+email-validator==2.3.0

@@ -13,6 +13,7 @@ PUBLIC_PATHS = {
     "/api",
     "/api/auth/login",
     "/api/auth/logout",
+    "/api/auth/register",
     "/docs",
     "/docs/oauth2-redirect",
     "/redoc",

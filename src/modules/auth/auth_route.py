@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, Request
 from ...core.security.permission_guard import require_permission
 from .handlers.auth_handlers import authHandler
 from .handlers.auth_login_handler import LoginRequest
+from .handlers.auth_register_handler import RegisterRequest
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -10,6 +11,11 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post("/login")
 async def login(request: Request, body: LoginRequest):
     return await authHandler.login(request, body)
+
+
+@router.post("/register")
+async def register(body: RegisterRequest):
+    return await authHandler.register(body)
 
 
 @router.post("/logout")
