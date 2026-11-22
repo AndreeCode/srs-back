@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from ....core.http.error import error
 from ....core.http.succes import success
 from ....core.http.uuid_param import InvalidUUIDError, parse_uuid
+from ....core.security.access_error import AccessDeniedError
 from ....core.security.password import hash_password
 from ..domain.user_domain import User
 from ..domain.user_errors import UserValidationError
@@ -31,7 +32,7 @@ class UserUpdateRequest(BaseModel):
     region_ids: Optional[list[UUID]] = None
 
 
-async def update_user_handler(user_id: str, body: UserUpdateRequest):
+async def update_user_handler(caller_id: UUID, user_id: str, body: UserUpdateRequest):
     try:
         user_uuid = parse_uuid(user_id, "user_id")
         current = await userService.get_by_id(user_uuid)
@@ -57,7 +58,7 @@ async def update_user_handler(user_id: str, body: UserUpdateRequest):
             region_ids=list(dict.fromkeys(body.region_ids)) if body.region_ids is not None else current.region_ids,
         )
 
-        updated = await userService.update(user, current)
+        updated = await userService.update(caller_id, user, current)
 
         if updated is None:
             return error(404, "Usuario no encontrado", ValueError(f"user_id={user_id}"))
@@ -66,6 +67,9 @@ async def update_user_handler(user_id: str, body: UserUpdateRequest):
 
     except InvalidUUIDError as err:
         return error(400, str(err), err)
+
+    except AccessDeniedError as err:
+        return error(403, str(err), err)
 
     except UniqueViolationError as err:
         return error(409, "El nombre de usuario ya existe", err)

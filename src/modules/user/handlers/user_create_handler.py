@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 from ....core.http.error import error
 from ....core.http.succes import success
+from ....core.security.access_error import AccessDeniedError
 from ....core.security.password import hash_password
 from ..domain.user_domain import User
 from ..domain.user_errors import UserValidationError
@@ -27,7 +28,7 @@ class UserCreateRequest(BaseModel):
     region_ids: list[UUID] = []
 
 
-async def create_user_handler(body: UserCreateRequest):
+async def create_user_handler(caller_id: UUID, body: UserCreateRequest):
     try:
         user = User(
             id=uuid4(),
@@ -44,8 +45,11 @@ async def create_user_handler(body: UserCreateRequest):
             region_ids=list(dict.fromkeys(body.region_ids)),
         )
 
-        created = await userService.create(user)
+        created = await userService.create(user, caller_id)
         return success(201, "Usuario creado correctamente", created.to_dict())
+
+    except AccessDeniedError as err:
+        return error(403, str(err), err)
 
     except UniqueViolationError as err:
         return error(409, "El nombre de usuario ya existe", err)

@@ -8,6 +8,7 @@ from ....core.config.config import config
 from ....core.db.audit_context import set_audit_context, valid_ip
 from ....core.http.error import error
 from ....core.http.succes import success
+from ....core.security.client_ip import client_ip
 from ....core.security.cookies import DEVICE_TOKEN_COOKIE, set_auth_cookie, set_device_cookie
 from ....core.security.jwt import create_access_token
 from ....core.security.password import verify_password
@@ -40,7 +41,7 @@ async def login_handler(request: Request, body: LoginRequest):
             reason = f": {user.blocked_reason}" if user.blocked_reason else ""
             return error(403, f"La cuenta esta bloqueada{reason}", ValueError(f"user_id={user.id}"))
 
-        ip = request.client.host if request.client else None
+        ip = client_ip(request)
         user_agent = request.headers.get("user-agent")
         set_audit_context(user_id=str(user.id), ip=ip, user_agent=user_agent)
 

@@ -17,6 +17,9 @@ class Config:
     jwt_algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
     jwt_expire_minutes: int = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
     cookie_secure: bool = os.getenv("COOKIE_SECURE", "false").lower() == "true"
+    trusted_proxies: set[str] = {
+        item.strip() for item in os.getenv("TRUSTED_PROXIES", "127.0.0.1,::1").split(",") if item.strip()
+    }
 
     upload_dir: str = os.getenv("UPLOAD_DIR", "uploads")
 

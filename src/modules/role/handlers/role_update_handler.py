@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from ....core.http.error import error
 from ....core.http.succes import success
 from ....core.http.uuid_param import InvalidUUIDError, parse_uuid
+from ....core.security.access_error import AccessDeniedError
 from ..domain.role_domain import Role, RoleName
 from ..services.roles_service import roleService
 
@@ -17,7 +18,7 @@ class RoleUpdateRequest(BaseModel):
     permission_ids: Optional[list[UUID]] = None
 
 
-async def update_role_handler(role_id: str, body: RoleUpdateRequest):
+async def update_role_handler(caller_id: UUID, role_id: str, body: RoleUpdateRequest):
     try:
         role_uuid = parse_uuid(role_id, "role_id")
         current = await roleService.get_by_id(role_uuid)
@@ -36,7 +37,7 @@ async def update_role_handler(role_id: str, body: RoleUpdateRequest):
             ),
         )
 
-        updated = await roleService.update(role)
+        updated = await roleService.update(caller_id, role, current)
 
         if updated is None:
             return error(404, "Rol no encontrado", ValueError(f"role_id={role_id}"))
@@ -45,6 +46,9 @@ async def update_role_handler(role_id: str, body: RoleUpdateRequest):
 
     except InvalidUUIDError as err:
         return error(400, str(err), err)
+
+    except AccessDeniedError as err:
+        return error(403, str(err), err)
 
     except UniqueViolationError as err:
         return error(409, "Ya existe un rol con ese nombre", err)

@@ -5,6 +5,7 @@ from starlette.requests import Request
 from ...modules.session.services.sessions_service import sessionService
 from ..db.audit_context import set_audit_context
 from ..http.error import error
+from .client_ip import client_ip
 from .cookies import ACCESS_TOKEN_COOKIE
 from .jwt import decode_access_token
 from .tokens import hash_token
@@ -47,7 +48,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         set_audit_context(
             user_id=str(session.user_id),
             device_id=str(session.device_id),
-            ip=request.client.host if request.client else None,
+            ip=client_ip(request),
             user_agent=request.headers.get("user-agent"),
         )
 

@@ -4,6 +4,7 @@ from jwt import PyJWTError
 from ....core.db.audit_context import set_audit_context
 from ....core.http.succes import success
 from ....core.logger.logger import logger
+from ....core.security.client_ip import client_ip
 from ....core.security.cookies import ACCESS_TOKEN_COOKIE, clear_auth_cookie
 from ....core.security.jwt import decode_access_token
 from ....core.security.tokens import hash_token
@@ -19,7 +20,7 @@ async def logout_handler(request: Request):
             set_audit_context(
                 user_id=payload.get("sub"),
                 device_id=payload.get("did"),
-                ip=request.client.host if request.client else None,
+                ip=client_ip(request),
                 user_agent=request.headers.get("user-agent"),
             )
             await sessionService.revoke_by_token(hash_token(token), "logout")
