@@ -7,16 +7,23 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 
+INSECURE_SECRETS = ("dev-secret-change-me", "cambia-esto-por-una-clave-larga")
+
+
 class Config:
+    app_env: str = os.getenv("APP_ENV", "development").strip().lower()
     dbhost: str = os.getenv("DB_HOST", "localhost")
     dbname: str = os.getenv("DB_NAME", "sicna")
     dbuser: str = os.getenv("DB_USER", "postgres")
-    dbpassword: str = os.getenv("DB_PASSWORD", "postgres")
+    dbpassword: str = os.getenv("DB_PASSWORD", "")
 
-    jwt_secret: str = os.getenv("JWT_SECRET", "dev-secret-change-me")
+    jwt_secret: str = os.getenv("JWT_SECRET", "")
     jwt_algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
     jwt_expire_minutes: int = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
-    cookie_secure: bool = os.getenv("COOKIE_SECURE", "false").lower() == "true"
+    cookie_secure: bool = (
+        os.getenv("COOKIE_SECURE", "false").lower() == "true"
+        or os.getenv("APP_ENV", "").strip().lower() == "production"
+    )
     trusted_proxies: set[str] = {
         item.strip() for item in os.getenv("TRUSTED_PROXIES", "127.0.0.1,::1").split(",") if item.strip()
     }
@@ -31,16 +38,34 @@ class Config:
 
     public_registration: bool = os.getenv("PUBLIC_REGISTRATION", "false").lower() == "true"
 
+    @property
+    def is_production(self) -> bool:
+        return self.app_env == "production"
+
+    def problems(self) -> list[str]:
+        found = []
+        if self.app_env not in ("development", "production"):
+            found.append("APP_ENV debe ser 'development' o 'production'")
+        if not self.jwt_secret or self.jwt_secret in INSECURE_SECRETS:
+            found.append("JWT_SECRET no esta configurado")
+        elif len(self.jwt_secret) < 32:
+            found.append("JWT_SECRET debe tener al menos 32 caracteres")
+        if not self.dbpassword:
+            found.append("DB_PASSWORD no esta configurado")
+        return found
+
+    def ensure_valid(self) -> None:
+        found = self.problems()
+        if found:
+            raise RuntimeError("Configuracion insegura o incompleta en el .env: " + "; ".join(found))
+
 
 config = Config()
 
 logger.info(
-    "Variables de configuracion obtenidas: dbhost=%s dbname=%s dbuser=%s dbpassword=%s",
+    "Variables de configuracion obtenidas: env=%s dbhost=%s dbname=%s dbuser=%s",
+    config.app_env,
     config.dbhost,
     config.dbname,
     config.dbuser,
-    config.dbpassword,
 )
-
-if config.jwt_secret == "dev-secret-change-me":
-    logger.error("JWT_SECRET no esta configurado en el .env, usando un valor inseguro de desarrollo")

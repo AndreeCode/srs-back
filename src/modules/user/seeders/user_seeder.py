@@ -1,4 +1,5 @@
-from ....core.security.password import hash_password
+from ....core.config.config import config
+from ....core.security.password import generate_password, hash_password
 
 USERS = [
     {
@@ -42,6 +43,7 @@ async def seed_users(conn, role_ids: dict) -> dict[str, object]:
             user_ids[u["username"]] = existing
             continue
 
+        password = generate_password() if config.is_production else u["password"]
         user_ids[u["username"]] = await conn.fetchval(
             """
             INSERT INTO users (username, password_hash, role_id, full_name, dni, phone, email,
@@ -50,13 +52,13 @@ async def seed_users(conn, role_ids: dict) -> dict[str, object]:
             RETURNING id
             """,
             u["username"],
-            hash_password(u["password"]),
+            hash_password(password),
             role_ids[u["role_name"]],
             u["full_name"],
             u["dni"],
             u["phone"],
             u["email"],
         )
-        print(f"usuario creado: {u['username']} / {u['password']}")
+        print(f"usuario creado: {u['username']} / {password}")
 
     return user_ids

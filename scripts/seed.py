@@ -2,6 +2,7 @@ import argparse
 import asyncio
 import sys
 
+from src.core.config.config import config
 from src.core.db.connection import get_connection
 from src.modules.care_package.seeders.care_package_seeder import seed_care_packages
 from src.modules.care_service.seeders.care_service_seeder import seed_care_services
@@ -62,4 +63,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Loads roles, permissions, users, territory, CRED catalog and demo data.")
     parser.add_argument("--no-demo", action="store_true", help="skip demo guardians, children, controls and claims")
     args = parser.parse_args()
+    if config.is_production and not args.no_demo:
+        print("APP_ENV=production: demo data is disabled, use --no-demo")
+        sys.exit(1)
     sys.exit(asyncio.run(main(demo=not args.no_demo)))

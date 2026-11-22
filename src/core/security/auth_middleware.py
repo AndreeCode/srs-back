@@ -3,6 +3,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 
 from ...modules.session.services.sessions_service import sessionService
+from ..config.config import config
 from ..db.audit_context import set_audit_context
 from ..http.error import error
 from .client_ip import client_ip
@@ -10,16 +11,9 @@ from .cookies import ACCESS_TOKEN_COOKIE
 from .jwt import decode_access_token
 from .tokens import hash_token
 
-PUBLIC_PATHS = {
-    "/api",
-    "/api/auth/login",
-    "/api/auth/logout",
-    "/api/auth/register",
-    "/docs",
-    "/docs/oauth2-redirect",
-    "/redoc",
-    "/openapi.json",
-}
+PUBLIC_PATHS = {"/api", "/api/auth/login", "/api/auth/logout", "/api/auth/register"}
+if not config.is_production:
+    PUBLIC_PATHS |= {"/docs", "/docs/oauth2-redirect", "/redoc", "/openapi.json"}
 
 
 class AuthMiddleware(BaseHTTPMiddleware):

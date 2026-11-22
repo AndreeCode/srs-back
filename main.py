@@ -6,12 +6,16 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 
+from src.core.config.config import config
 from src.core.db.connection import get_connection
 from src.core.http.exception_handlers import register_exception_handlers
 from src.core.routes.routes import router as api_router
 from src.core.security.auth_middleware import AuthMiddleware
+from src.core.security.security_headers import SecurityHeadersMiddleware
 
 from fastapi import FastAPI
+
+config.ensure_valid()
 
 
 @asynccontextmanager
@@ -21,10 +25,17 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(lifespan=lifespan)
+docs = not config.is_production
+app = FastAPI(
+    lifespan=lifespan,
+    docs_url="/docs" if docs else None,
+    redoc_url="/redoc" if docs else None,
+    openapi_url="/openapi.json" if docs else None,
+)
 
 register_exception_handlers(app)
 app.add_middleware(AuthMiddleware)
+app.add_middleware(SecurityHeadersMiddleware)
 app.include_router(api_router, prefix="/api")
 
 
