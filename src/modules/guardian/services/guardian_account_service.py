@@ -2,6 +2,7 @@ from dataclasses import replace
 from uuid import uuid4
 
 from ....core.security.password import hash_password
+from ....core.security.password_policy import PasswordPolicyError, ensure_strong_password
 from ...role.services.roles_service import roleService
 from ...user.domain.user_domain import User
 from ...user.services.users_service import userService
@@ -20,6 +21,11 @@ async def check_account(guardian: Guardian | None, username: str) -> None:
 
 async def create_account(guardian: Guardian, username: str, password: str) -> Guardian:
     await check_account(guardian, username)
+
+    try:
+        ensure_strong_password(password, username, guardian.dni)
+    except PasswordPolicyError as err:
+        raise GuardianValidationError(str(err)) from err
 
     role = next((r for r in await roleService.get_all() if r.name == "guardian" and r.is_active), None)
 

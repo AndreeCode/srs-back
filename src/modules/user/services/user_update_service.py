@@ -4,6 +4,7 @@ from ....core.security.access_error import AccessDeniedError
 from ...role.services.role_access_service import ensure_can_assign
 from ...role.services.roles_service import roleService
 from ..domain.user_domain import User
+from ...session.repositories.session_repositories import sessionRepository
 from ..repositories.user_repositories import userRepository
 from .user_access_service import ensure_can_manage
 from .user_validate_role_service import validate_role_and_regions
@@ -30,4 +31,12 @@ async def update(caller_id: UUID, user: User, current: User) -> User | None:
     if role_changed:
         await ensure_can_assign(caller_id, await roleService.get_by_id(user.role_id))
 
-    return await userRepository.update(user)
+    updated = await userRepository.update(user)
+
+    if updated is not None:
+        if user.password_hash != current.password_hash:
+            await sessionRepository.revoke_all_of_user(current.id, "password_reset")
+        elif (user.blocked and not current.blocked) or (current.active and not user.active):
+            await sessionRepository.revoke_all_of_user(current.id, "user_blocked" if user.blocked else "user_deactivated")
+
+    return updated

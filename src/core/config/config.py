@@ -48,6 +48,10 @@ class Config:
 
     public_registration: bool = os.getenv("PUBLIC_REGISTRATION", "false").lower() == "true"
 
+    login_max_attempts: int = int(os.getenv("LOGIN_MAX_ATTEMPTS", "5"))
+    login_lock_minutes: int = int(os.getenv("LOGIN_LOCK_MINUTES", "15"))
+    login_rate_limit: int = int(os.getenv("LOGIN_RATE_LIMIT", "10"))
+
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"

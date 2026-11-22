@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, Request
 from ...core.security.permission_guard import require_permission
 from .handlers.auth_handlers import authHandler
 from .handlers.auth_login_handler import LoginRequest
+from .handlers.auth_password_handler import ChangePasswordRequest
 from .handlers.auth_register_handler import RegisterRequest
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -26,3 +27,8 @@ async def logout(request: Request):
 @router.get("/me", dependencies=[Depends(require_permission("user.get:me"))])
 async def me(request: Request):
     return await authHandler.me(request)
+
+
+@router.put("/password", dependencies=[Depends(require_permission("user.get:me"))])
+async def change_password(request: Request, body: ChangePasswordRequest):
+    return await authHandler.change_password(request, body)

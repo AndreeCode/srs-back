@@ -1,8 +1,10 @@
 from datetime import datetime, timedelta, timezone
-from uuid import uuid4
+from uuid import UUID, uuid4
+
+import math
 
 from fastapi import Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ....core.config.config import config
 from ....core.db.audit_context import set_audit_context, valid_ip
@@ -11,7 +13,7 @@ from ....core.http.succes import success
 from ....core.security.client_ip import client_ip
 from ....core.security.cookies import DEVICE_TOKEN_COOKIE, set_auth_cookie, set_device_cookie
 from ....core.security.jwt import create_access_token
-from ....core.security.password import hash_password, needs_rehash, verify_password
+from ....core.security.password import burn_password_check, hash_password, needs_rehash, verify_password
 from ....core.security.tokens import generate_token, hash_token
 from ....core.logger.logger import logger
 from ...device.services.devices_service import deviceService
@@ -21,19 +23,62 @@ from ...session.domain.session_domain import Session
 from ...session.services.sessions_service import sessionService
 from ...user.repositories.user_repositories import userRepository
 from ...user.services.users_service import userService
+from .login_rate_limiter import allow_login_attempt, register_unknown_login_failure, unknown_login_locked_until
 
 
 class LoginRequest(BaseModel):
-    username: str
-    password: str
+    username: str = Field(min_length=1, max_length=150)
+    password: str = Field(min_length=1, max_length=128)
+
+
+NIL_USER = UUID(int=0)
+
+
+def lock_message(until: datetime) -> str:
+    minutes = max(1, math.ceil((until - datetime.now(timezone.utc)).total_seconds() / 60))
+    return f"La cuenta esta bloqueada temporalmente por intentos fallidos. Intenta nuevamente en {minutes} minuto(s)"
+
+
+async def check_credentials(body: LoginRequest):
+    user = await userService.get_by_username(body.username)
+
+    if user is None:
+        locked_until = unknown_login_locked_until(body.username)
+        if locked_until is not None:
+            await userRepository.locked_until(NIL_USER)
+            return None, error(429, lock_message(locked_until), ValueError("locked unknown user"))
+        await userRepository.locked_until(NIL_USER)
+        burn_password_check(body.password)
+        await userRepository.register_login_failure(NIL_USER, config.login_max_attempts, config.login_lock_minutes * 60)
+        locked_until = register_unknown_login_failure(body.username)
+        if locked_until is not None:
+            return None, error(429, lock_message(locked_until), ValueError("unknown user locked"))
+        return None, error(401, "Usuario o contrasena incorrectos", ValueError("invalid credentials"))
+
+    locked_until = await userRepository.locked_until(user.id)
+    if locked_until is not None:
+        return None, error(429, lock_message(locked_until), ValueError(f"user_id={user.id} locked"))
+
+    if not verify_password(body.password, user.password_hash):
+        locked_until = await userRepository.register_login_failure(
+            user.id, config.login_max_attempts, config.login_lock_minutes * 60
+        )
+        if locked_until is not None:
+            return None, error(429, lock_message(locked_until), ValueError(f"user_id={user.id} locked"))
+        return None, error(401, "Usuario o contrasena incorrectos", ValueError("invalid credentials"))
+
+    await userRepository.reset_login_failures(user.id)
+    return user, None
 
 
 async def login_handler(request: Request, body: LoginRequest):
     try:
-        user = await userService.get_by_username(body.username)
+        if not allow_login_attempt(client_ip(request)):
+            return error(429, "Demasiados intentos de inicio de sesion, espera un minuto", ValueError("ip rate limit"))
 
-        if user is None or not verify_password(body.password, user.password_hash):
-            return error(401, "Usuario o contrasena incorrectos", ValueError("invalid credentials"))
+        user, failure = await check_credentials(body)
+        if failure is not None:
+            return failure
 
         if not user.active:
             return error(403, "El usuario esta inactivo", ValueError(f"user_id={user.id}"))

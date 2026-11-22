@@ -10,6 +10,7 @@ from ....core.http.succes import success
 from ....core.http.uuid_param import InvalidUUIDError, parse_uuid
 from ....core.security.access_error import AccessDeniedError
 from ....core.security.password import hash_password
+from ....core.security.password_policy import PasswordPolicyError, ensure_strong_password
 from ..domain.user_domain import User
 from ..domain.user_errors import UserValidationError
 from ..services.users_service import userService
@@ -39,6 +40,9 @@ async def update_user_handler(caller_id: UUID, user_id: str, body: UserUpdateReq
 
         if current is None:
             return error(404, "Usuario no encontrado", ValueError(f"user_id={user_id}"))
+
+        if body.password:
+            ensure_strong_password(body.password, body.username or current.username, body.dni or current.dni)
 
         user = User(
             id=current.id,
@@ -70,6 +74,9 @@ async def update_user_handler(caller_id: UUID, user_id: str, body: UserUpdateReq
 
     except AccessDeniedError as err:
         return error(403, str(err), err)
+
+    except PasswordPolicyError as err:
+        return error(400, str(err), err)
 
     except UniqueViolationError as err:
         return error(409, "El nombre de usuario ya existe", err)
