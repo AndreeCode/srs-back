@@ -31,7 +31,7 @@ class UserCreateRequest(BaseModel):
 
 async def create_user_handler(caller_id: UUID, body: UserCreateRequest):
     try:
-        ensure_strong_password(body.password, body.username, body.dni)
+        ensure_strong_password(body.password, body.username, body.dni, body.full_name, body.email)
         user = User(
             id=uuid4(),
             username=body.username,

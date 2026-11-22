@@ -1,10 +1,13 @@
 import logging
+import time
 from contextlib import asynccontextmanager
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%Y-%m-%dT%H:%M:%SZ",
 )
+logging.Formatter.converter = time.gmtime
 
 import asyncio
 

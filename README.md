@@ -80,6 +80,10 @@ Abre:
 | `coordinador` | `Coord123!` | Coordinador |
 | `usuario` | `Usuario123!` | Padre |
 
+## Seguridad (OWASP ASVS 5.0 nivel 2)
+
+La matriz de cumplimiento del sistema (back + signa + HIS), con la documentación que exige el estándar, está en [`ASVS.md`](ASVS.md). Para aplicar la migración `008` (`ACCESS_DENIED` en la auditoría): `python -m scripts.migrate`.
+
 ## Comandos útiles
 
 ```bash

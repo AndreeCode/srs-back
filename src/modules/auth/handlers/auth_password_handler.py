@@ -43,7 +43,7 @@ async def change_password_handler(request: Request, body: ChangePasswordRequest)
         if body.new_password == body.current_password:
             return error(400, "La nueva contrasena debe ser distinta a la actual", ValueError("same password"))
 
-        ensure_strong_password(body.new_password, user.username, user.dni)
+        ensure_strong_password(body.new_password, user.username, user.dni, user.full_name, user.email)
         await userRepository.set_password(user.id, hash_password(body.new_password))
         closed = await sessionRepository.revoke_all_of_user(user.id, "password_changed", session_id)
         await log_auth_event("PASSWORD_CHANGED", user.id, "successful", {"closed_sessions": closed})

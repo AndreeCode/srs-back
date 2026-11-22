@@ -1,8 +1,11 @@
 import logging
 import sys
+import time
 
 
 class SafeFormatter(logging.Formatter):
+    converter = time.gmtime
+
     def format(self, record: logging.LogRecord) -> str:
         message = record.getMessage()
         record.msg = message.replace("\r", "\\r").replace("\n", "\\n")
@@ -19,7 +22,7 @@ class Logger:
 
             formatter = SafeFormatter(
                 fmt="%(asctime)s | %(levelname)s | %(message)s",
-                datefmt="%H:%M:%S",
+                datefmt="%Y-%m-%dT%H:%M:%SZ",
             )
 
             handler.setFormatter(formatter)

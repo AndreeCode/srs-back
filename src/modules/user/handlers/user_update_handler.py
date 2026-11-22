@@ -42,7 +42,13 @@ async def update_user_handler(caller_id: UUID, user_id: str, body: UserUpdateReq
             return error(404, "Usuario no encontrado", ValueError(f"user_id={user_id}"))
 
         if body.password:
-            ensure_strong_password(body.password, body.username or current.username, body.dni or current.dni)
+            ensure_strong_password(
+                body.password,
+                body.username or current.username,
+                body.dni or current.dni,
+                body.full_name or current.full_name,
+                body.email or current.email,
+            )
 
         user = User(
             id=current.id,

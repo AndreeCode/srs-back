@@ -10,10 +10,15 @@ from ...session.repositories.session_repositories import sessionRepository
 from ...user.services.users_service import userService
 from ..repositories.auth_event_repository import log_auth_event
 from ..services import auth_mfa_service as mfa
+from .auth_login_handler import lock_message
 
 
 class MfaCodeRequest(BaseModel):
     code: str = Field(min_length=6, max_length=20)
+
+
+class PasswordConfirmRequest(BaseModel):
+    password: str = Field(min_length=1, max_length=128)
 
 
 class MfaDisableRequest(BaseModel):
@@ -30,6 +35,8 @@ async def _run(action, ok_status: int = 200):
         return await action()
     except mfa.MfaError as err:
         return error(400, str(err), err)
+    except mfa.ReauthLockedError as err:
+        return error(429, lock_message(err.locked_until), err)
     except AccessDeniedError as err:
         return error(403, str(err), err)
     except Exception as err:
@@ -43,10 +50,11 @@ async def mfa_status_handler(request: Request):
     return await _run(action)
 
 
-async def mfa_setup_handler(request: Request):
+async def mfa_setup_handler(request: Request, body: PasswordConfirmRequest):
     async def action():
         user = await userService.get_by_id(ids(request)[0])
-        return success(200, "Agrega la clave en tu app autenticadora y confirma con un codigo", await mfa.setup(user))
+        data = await mfa.setup(user, body.password)
+        return success(200, "Agrega la clave en tu app autenticadora y confirma con un codigo", data)
     return await _run(action)
 
 
@@ -64,8 +72,9 @@ async def mfa_enable_handler(request: Request, body: MfaCodeRequest):
 
 async def mfa_disable_handler(request: Request, body: MfaDisableRequest):
     async def action():
-        user = await userService.get_by_id(ids(request)[0])
-        await mfa.disable(user, body.password, body.code)
+        user_id, session_id = ids(request)
+        user = await userService.get_by_id(user_id)
+        await mfa.disable(user, session_id, body.password, body.code)
         return success(200, "Verificacion en dos pasos desactivada")
     return await _run(action)
 
@@ -83,13 +92,24 @@ async def my_sessions_handler(request: Request):
     return await _run(action)
 
 
-async def revoke_my_session_handler(request: Request, session_id: UUID):
+async def revoke_my_session_handler(request: Request, session_id: UUID, body: PasswordConfirmRequest):
     async def action():
         user_id, _ = ids(request)
+        await mfa.confirm_password(await userService.get_by_id(user_id), body.password)
         if not await sessionRepository.revoke_own(user_id, session_id):
             return error(404, "Sesion no encontrada o ya cerrada")
         await log_auth_event("SESSION_REVOKED", user_id, "successful", {"session_id": str(session_id)})
         return success(200, "Sesion cerrada")
+    return await _run(action)
+
+
+async def revoke_my_other_sessions_handler(request: Request, body: PasswordConfirmRequest):
+    async def action():
+        user_id, session_id = ids(request)
+        await mfa.confirm_password(await userService.get_by_id(user_id), body.password)
+        closed = await sessionRepository.revoke_all_of_user(user_id, "revoked_by_user", session_id)
+        await log_auth_event("SESSION_REVOKED", user_id, "successful", {"scope": "others", "closed_sessions": closed})
+        return success(200, "Se cerraron tus demas sesiones")
     return await _run(action)
 
 

@@ -17,6 +17,12 @@ class MfaError(ValueError):
     pass
 
 
+class ReauthLockedError(ValueError):
+    def __init__(self, locked_until: datetime):
+        super().__init__("cuenta bloqueada")
+        self.locked_until = locked_until
+
+
 def context(user_id) -> str:
     return f"mfa:{user_id}"
 
@@ -48,7 +54,25 @@ async def status(user) -> dict:
     }
 
 
-async def setup(user) -> dict:
+async def confirm_password(user, password: str) -> None:
+    locked_until = await userRepository.locked_until(user.id)
+    if locked_until is not None:
+        raise ReauthLockedError(locked_until)
+    if verify_password(password, user.password_hash):
+        return
+    locked_until = await userRepository.register_login_failure(
+        user.id, config.login_max_attempts, config.login_lock_minutes * 60
+    )
+    await log_auth_event("LOGIN_FAILED", user.id, "failed", {"reason": "reauth_bad_password"})
+    if locked_until is not None:
+        await log_auth_event("ACCOUNT_LOCKED", user.id, "blocked", {"reason": "password_guessing"})
+        await sessionRepository.revoke_all_of_user(user.id, "password_guessing")
+        raise ReauthLockedError(locked_until)
+    raise MfaError("La contrasena es incorrecta")
+
+
+async def setup(user, password: str) -> dict:
+    await confirm_password(user, password)
     sec = await userRepository.security(user.id)
     if sec["mfa_enabled"]:
         raise MfaError("La verificacion en dos pasos ya esta activa")
@@ -88,14 +112,14 @@ async def verify_code(user_id: UUID, code: str) -> bool:
     return False
 
 
-async def disable(user, password: str, code: str) -> None:
+async def disable(user, session_id: UUID, password: str, code: str) -> None:
     if required_for(await role_name(user)):
         raise AccessDeniedError("Tu rol exige la verificacion en dos pasos: no se puede desactivar")
-    if not verify_password(password, user.password_hash):
-        raise MfaError("La contrasena es incorrecta")
+    await confirm_password(user, password)
     if not await verify_code(user.id, code):
         raise MfaError("El codigo no es valido")
     await userRepository.clear_mfa(user.id)
+    await sessionRepository.revoke_all_of_user(user.id, "mfa_disabled", session_id)
     await log_auth_event("MFA_DISABLED", user.id, "successful")
 
 

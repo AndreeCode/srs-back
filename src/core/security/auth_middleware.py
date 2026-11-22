@@ -77,4 +77,9 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return error(403, "Tu rol exige la verificacion en dos pasos: activala para continuar", ValueError("mfa setup"))
 
         request.state.user = payload
-        return await call_next(request)
+        response = await call_next(request)
+        if response.status_code == 403:
+            await log_auth_event(
+                "ACCESS_DENIED", session["user_id"], "blocked", {"method": request.method, "path": path}
+            )
+        return response

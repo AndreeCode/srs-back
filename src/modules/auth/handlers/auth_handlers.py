@@ -8,6 +8,7 @@ from .auth_mfa_handler import (
     mfa_setup_handler,
     mfa_status_handler,
     my_sessions_handler,
+    revoke_my_other_sessions_handler,
     revoke_my_session_handler,
 )
 from .auth_password_handler import change_password_handler
@@ -27,6 +28,7 @@ class AuthHandler:
     mfa_disable = staticmethod(mfa_disable_handler)
     my_sessions = staticmethod(my_sessions_handler)
     revoke_my_session = staticmethod(revoke_my_session_handler)
+    revoke_my_other_sessions = staticmethod(revoke_my_other_sessions_handler)
 
 
 authHandler = AuthHandler()

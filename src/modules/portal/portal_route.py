@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 
 from ...core.security.permission_guard import require_permission
+from ...core.security.throttle import throttle
 from .handlers.portal_claims_handler import PortalClaimCreateRequest
 from .handlers.portal_handlers import portalHandler
 from .handlers.portal_link_child_handler import PortalLinkChildRequest
@@ -28,11 +29,11 @@ async def create_portal_claim(request: Request, body: PortalClaimCreateRequest):
     return await portalHandler.create_claim(request, body)
 
 
-@router.post("/claim-evidences", dependencies=[Depends(require_permission("portal.post"))])
+@router.post("/claim-evidences", dependencies=[Depends(require_permission("portal.post")), Depends(throttle("upload_portal_evidence", 10, 600))])
 async def upload_portal_evidence(request: Request, claim_id: str = Form(...), file: UploadFile = File(...)):
     return await portalHandler.upload_evidence(request, claim_id, file)
 
 
-@router.get("/claim-evidences/{claim_evidence_id}/file", dependencies=[Depends(require_permission("portal.get"))])
+@router.get("/claim-evidences/{claim_evidence_id}/file", dependencies=[Depends(require_permission("portal.get")), Depends(throttle("download_portal_evidence", 60, 600))])
 async def download_portal_evidence(request: Request, claim_evidence_id: str):
     return await portalHandler.download_evidence(request, claim_evidence_id)

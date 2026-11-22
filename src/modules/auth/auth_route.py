@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Request
 from ...core.security.permission_guard import require_permission
 from .handlers.auth_handlers import authHandler
 from .handlers.auth_login_handler import LoginRequest, MfaLoginRequest
-from .handlers.auth_mfa_handler import MfaCodeRequest, MfaDisableRequest
+from .handlers.auth_mfa_handler import MfaCodeRequest, MfaDisableRequest, PasswordConfirmRequest
 from .handlers.auth_password_handler import ChangePasswordRequest
 from .handlers.auth_register_handler import RegisterRequest
 
@@ -48,8 +48,8 @@ async def mfa_status(request: Request):
 
 
 @router.post("/mfa/setup", dependencies=[Depends(require_permission("user.get:me"))])
-async def mfa_setup(request: Request):
-    return await authHandler.mfa_setup(request)
+async def mfa_setup(request: Request, body: PasswordConfirmRequest):
+    return await authHandler.mfa_setup(request, body)
 
 
 @router.post("/mfa/enable", dependencies=[Depends(require_permission("user.get:me"))])
@@ -67,6 +67,11 @@ async def my_sessions(request: Request):
     return await authHandler.my_sessions(request)
 
 
-@router.delete("/sessions/{session_id}", dependencies=[Depends(require_permission("user.get:me"))])
-async def revoke_my_session(request: Request, session_id: UUID):
-    return await authHandler.revoke_my_session(request, session_id)
+@router.post("/sessions/revoke-others", dependencies=[Depends(require_permission("user.get:me"))])
+async def revoke_my_other_sessions(request: Request, body: PasswordConfirmRequest):
+    return await authHandler.revoke_my_other_sessions(request, body)
+
+
+@router.post("/sessions/{session_id}/revoke", dependencies=[Depends(require_permission("user.get:me"))])
+async def revoke_my_session(request: Request, session_id: UUID, body: PasswordConfirmRequest):
+    return await authHandler.revoke_my_session(request, session_id, body)

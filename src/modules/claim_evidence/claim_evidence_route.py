@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 
 from ...core.security.permission_guard import require_permission
+from ...core.security.throttle import throttle
 from .handlers.claim_evidence_handlers import claimEvidenceHandler
 
 router = APIRouter(prefix="/claim-evidences", tags=["claim-evidences"])
 
 
-@router.post("", dependencies=[Depends(require_permission("claim_evidence.post"))])
+@router.post("", dependencies=[Depends(require_permission("claim_evidence.post")), Depends(throttle("create_claim_evidence", 30, 600))])
 async def create_claim_evidence(claim_id: str = Form(...), file: UploadFile = File(...)):
     return await claimEvidenceHandler.create(claim_id, file)
 
@@ -21,7 +22,7 @@ async def get_claim_evidence_by_id(claim_evidence_id: str):
     return await claimEvidenceHandler.get_by_id(claim_evidence_id)
 
 
-@router.get("/{claim_evidence_id}/file", dependencies=[Depends(require_permission("claim_evidence.get"))])
+@router.get("/{claim_evidence_id}/file", dependencies=[Depends(require_permission("claim_evidence.get")), Depends(throttle("download_claim_evidence", 60, 600))])
 async def download_claim_evidence(claim_evidence_id: str):
     return await claimEvidenceHandler.download(claim_evidence_id)
 
