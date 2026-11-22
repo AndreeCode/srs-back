@@ -14,13 +14,13 @@ class ErrorResponse(BaseModel):
 def error(
     status: int,
     msg: str,
-    err: Exception,
+    err: Exception | None = None,
 ) -> JSONResponse:
 
-    logger.error(
-        f"{msg}: {err}",
-        exc_info=err,
-    )
+    if status >= 500:
+        logger.error(f"{status} {msg}: {err}", exc_info=err)
+    else:
+        logger.warning(f"{status} {msg}: {type(err).__name__}: {err}" if err else f"{status} {msg}")
 
     response = ErrorResponse(
         status=status,

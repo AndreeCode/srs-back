@@ -15,7 +15,7 @@ def register_exception_handlers(app: FastAPI) -> None:
             details.append(f"{field}: {err['msg']}" if field else err["msg"])
 
         msg = "; ".join(details) if details else "Datos de la solicitud invalidos"
-        return error(422, msg, exc)
+        return error(422, msg)
 
     @app.exception_handler(StarletteHTTPException)
     async def http_exception_handler(request: Request, exc: StarletteHTTPException):

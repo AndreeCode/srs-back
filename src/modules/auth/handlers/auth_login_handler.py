@@ -23,6 +23,8 @@ from ...session.domain.session_domain import Session
 from ...session.services.sessions_service import sessionService
 from ...user.repositories.user_repositories import userRepository
 from ...user.services.users_service import userService
+from ..repositories.auth_event_repository import log_auth_event
+from ...security_alert.services.security_alerts_service import securityAlertService as alerts
 from .login_rate_limiter import allow_login_attempt, register_unknown_login_failure, unknown_login_locked_until
 
 
@@ -46,24 +48,32 @@ async def check_credentials(body: LoginRequest):
         locked_until = unknown_login_locked_until(body.username)
         if locked_until is not None:
             await userRepository.locked_until(NIL_USER)
+            await log_auth_event("LOGIN_FAILED", None, "blocked", {"username": body.username, "reason": "locked"})
             return None, error(429, lock_message(locked_until), ValueError("locked unknown user"))
         await userRepository.locked_until(NIL_USER)
         burn_password_check(body.password)
         await userRepository.register_login_failure(NIL_USER, config.login_max_attempts, config.login_lock_minutes * 60)
         locked_until = register_unknown_login_failure(body.username)
+        await log_auth_event("LOGIN_FAILED", None, "failed", {"username": body.username, "reason": "unknown_user"})
         if locked_until is not None:
+            await log_auth_event("ACCOUNT_LOCKED", None, "blocked", {"username": body.username})
+            await alerts.scan_auth(None)
             return None, error(429, lock_message(locked_until), ValueError("unknown user locked"))
         return None, error(401, "Usuario o contrasena incorrectos", ValueError("invalid credentials"))
 
     locked_until = await userRepository.locked_until(user.id)
     if locked_until is not None:
+        await log_auth_event("LOGIN_FAILED", user.id, "blocked", {"username": body.username, "reason": "locked"})
         return None, error(429, lock_message(locked_until), ValueError(f"user_id={user.id} locked"))
 
     if not verify_password(body.password, user.password_hash):
         locked_until = await userRepository.register_login_failure(
             user.id, config.login_max_attempts, config.login_lock_minutes * 60
         )
+        await log_auth_event("LOGIN_FAILED", user.id, "failed", {"username": body.username, "reason": "bad_password"})
         if locked_until is not None:
+            await log_auth_event("ACCOUNT_LOCKED", user.id, "blocked", {"username": body.username})
+            await alerts.scan_auth(user.id)
             return None, error(429, lock_message(locked_until), ValueError(f"user_id={user.id} locked"))
         return None, error(401, "Usuario o contrasena incorrectos", ValueError("invalid credentials"))
 
@@ -73,7 +83,10 @@ async def check_credentials(body: LoginRequest):
 
 async def login_handler(request: Request, body: LoginRequest):
     try:
+        set_audit_context(ip=client_ip(request), user_agent=request.headers.get("user-agent"))
         if not allow_login_attempt(client_ip(request)):
+            await log_auth_event("LOGIN_FAILED", None, "blocked", {"username": body.username, "reason": "ip_rate_limit"})
+            await alerts.scan_auth(None)
             return error(429, "Demasiados intentos de inicio de sesion, espera un minuto", ValueError("ip rate limit"))
 
         user, failure = await check_credentials(body)
@@ -81,10 +94,12 @@ async def login_handler(request: Request, body: LoginRequest):
             return failure
 
         if not user.active:
+            await log_auth_event("LOGIN_FAILED", user.id, "blocked", {"reason": "inactive"})
             return error(403, "El usuario esta inactivo", ValueError(f"user_id={user.id}"))
 
         if user.blocked:
             reason = f": {user.blocked_reason}" if user.blocked_reason else ""
+            await log_auth_event("LOGIN_FAILED", user.id, "blocked", {"reason": "blocked"})
             return error(403, f"La cuenta esta bloqueada{reason}", ValueError(f"user_id={user.id}"))
 
         ip = client_ip(request)
@@ -97,6 +112,7 @@ async def login_handler(request: Request, body: LoginRequest):
         if not device.trusted:
             what = "Este navegador esta bloqueado" if device.block_scope == "browser" else "Este dispositivo esta bloqueado para la cuenta"
             reason = f": {device.blocked_reason}" if device.blocked_reason else ""
+            await log_auth_event("LOGIN_FAILED", user.id, "blocked", {"reason": "device_blocked", "device_id": str(device.id)})
             return error(403, f"{what}{reason}", ValueError(f"device_id={device.id}"))
 
         set_audit_context(device_id=str(device.id))
@@ -130,6 +146,8 @@ async def login_handler(request: Request, body: LoginRequest):
             await securityAlertService.scan(device_hash=device.device_hash, user_id=user.id)
         except Exception as err:
             logger.error(f"No se pudo revisar la actividad del login: {err}")
+
+        await log_auth_event("LOGIN", user.id, "successful", {"session_id": str(session_id)})
 
         role = await roleService.get_by_id(user.role_id)
         response = success(200, "Inicio de sesion exitoso", {**user.to_dict(), "role": role.name if role else None})

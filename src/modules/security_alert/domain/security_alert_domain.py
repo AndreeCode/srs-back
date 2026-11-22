@@ -4,13 +4,17 @@ from datetime import datetime
 from typing import Literal, Optional
 from uuid import UUID
 
-AlertKind = Literal["shared_device", "many_devices"]
+AlertKind = Literal["shared_device", "many_devices", "brute_force_account", "brute_force_ip", "audit_chain_broken"]
 AlertStatus = Literal["open", "resolved", "dismissed"]
 
 SHARED_DEVICE_ACCOUNTS = 3
 ACCOUNT_DEVICES = 3
 WINDOW_DAYS = 30
 QUIET_DAYS = 7
+BRUTE_FORCE_ACCOUNT_FAILURES = 10
+BRUTE_FORCE_IP_FAILURES = 20
+BRUTE_FORCE_WINDOW_MINUTES = 60
+BRUTE_FORCE_QUIET_DAYS = 1
 
 
 @dataclass

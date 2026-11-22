@@ -1,4 +1,6 @@
 from dotenv import load_dotenv
+import hashlib
+import hmac
 import logging
 import os
 
@@ -29,6 +31,7 @@ class Config:
     jwt_secret: str = os.getenv("JWT_SECRET", "")
     jwt_algorithm: str = os.getenv("JWT_ALGORITHM", "HS256")
     jwt_expire_minutes: int = int(os.getenv("JWT_EXPIRE_MINUTES", "60"))
+    audit_chain_key_env: str = os.getenv("AUDIT_CHAIN_KEY", "").strip()
     cookie_secure: bool = (
         os.getenv("COOKIE_SECURE", "false").lower() == "true"
         or os.getenv("APP_ENV", "").strip().lower() == "production"
@@ -56,6 +59,12 @@ class Config:
     def is_production(self) -> bool:
         return self.app_env == "production"
 
+    @property
+    def audit_chain_key(self) -> str:
+        if self.audit_chain_key_env:
+            return self.audit_chain_key_env
+        return hmac.new(self.jwt_secret.encode(), b"audit-chain-v1", hashlib.sha256).hexdigest()
+
     def problems(self) -> list[str]:
         found = []
         if self.app_env not in ("development", "production"):
@@ -76,6 +85,10 @@ class Config:
             found.append(f"MSSQL_ENCRYPTION debe ser uno de: {', '.join(MSSQL_ENCRYPTION_MODES)}")
         elif self.is_production and not is_local(self.mssql_host) and self.mssql_encryption != "require":
             found.append("MSSQL_ENCRYPTION debe ser require si HIS-MINSA esta en otro servidor")
+        if self.audit_chain_key_env and len(self.audit_chain_key_env) < 32:
+            found.append("AUDIT_CHAIN_KEY debe tener al menos 32 caracteres")
+        elif self.is_production and not self.audit_chain_key_env:
+            found.append("AUDIT_CHAIN_KEY es obligatorio en produccion (clave del HMAC de la cadena de auditoria)")
         return found
 
     def ensure_valid(self) -> None:

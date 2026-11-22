@@ -74,6 +74,75 @@ async def find_many_devices(min_devices: int, days: int, user_id: UUID | None) -
         await conn.close()
 
 
+async def find_brute_force_accounts(min_failures: int, minutes: int, user_id: UUID | None) -> list[dict]:
+    conn = await get_connection()
+
+    try:
+        rows = await conn.fetch(
+            """
+            SELECT a.user_id, u.username, u.full_name, u.blocked,
+                   count(*) FILTER (WHERE a.action = 'LOGIN_FAILED') AS failures,
+                   count(*) FILTER (WHERE a.action = 'ACCOUNT_LOCKED') AS locks,
+                   to_jsonb(array_remove(array_agg(DISTINCT host(a.ip_address)), NULL)) AS ips,
+                   max(a.created_at) AS last_attempt_at
+            FROM audit_log a
+            JOIN users u ON u.id = a.user_id
+            WHERE a.action IN ('LOGIN_FAILED', 'ACCOUNT_LOCKED')
+              AND a.created_at >= NOW() - make_interval(mins => $2)
+              AND ($3::uuid IS NULL OR a.user_id = $3)
+            GROUP BY a.user_id, u.username, u.full_name, u.blocked
+            HAVING count(*) FILTER (WHERE a.action = 'LOGIN_FAILED') >= $1
+                OR count(*) FILTER (WHERE a.action = 'ACCOUNT_LOCKED') > 0
+            """,
+            min_failures,
+            minutes,
+            user_id,
+        )
+
+        return [
+            {"subject": str(row["user_id"]), "device_hash": None, "user_id": row["user_id"],
+             "detail": {"total": row["failures"], "locks": row["locks"], "username": row["username"],
+                        "full_name": row["full_name"], "user_blocked": row["blocked"], "ips": json.loads(row["ips"]),
+                        "window_minutes": minutes, "last_attempt_at": row["last_attempt_at"].isoformat()}}
+            for row in rows
+        ]
+
+    finally:
+        await conn.close()
+
+
+async def find_brute_force_ips(min_failures: int, minutes: int) -> list[dict]:
+    conn = await get_connection()
+
+    try:
+        rows = await conn.fetch(
+            """
+            SELECT host(ip_address) AS ip, count(*) AS total,
+                   count(DISTINCT COALESCE(user_id::text, details->>'username')) AS accounts,
+                   to_jsonb((array_agg(DISTINCT COALESCE(details->>'username', user_id::text)))[1:20]) AS usernames,
+                   max(created_at) AS last_attempt_at
+            FROM audit_log
+            WHERE action = 'LOGIN_FAILED' AND ip_address IS NOT NULL
+              AND created_at >= NOW() - make_interval(mins => $2)
+            GROUP BY ip_address
+            HAVING count(*) >= $1
+            """,
+            min_failures,
+            minutes,
+        )
+
+        return [
+            {"subject": row["ip"], "device_hash": None, "user_id": None,
+             "detail": {"total": row["total"], "ip": row["ip"], "accounts": row["accounts"],
+                        "usernames": json.loads(row["usernames"]), "window_minutes": minutes,
+                        "last_attempt_at": row["last_attempt_at"].isoformat()}}
+            for row in rows
+        ]
+
+    finally:
+        await conn.close()
+
+
 async def save_alert(kind: str, found: dict, quiet_days: int) -> bool:
     conn = await get_connection()
 

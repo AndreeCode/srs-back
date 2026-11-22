@@ -11,6 +11,7 @@ from ....core.security.password_policy import PasswordPolicyError, ensure_strong
 from ...session.repositories.session_repositories import sessionRepository
 from ...user.repositories.user_repositories import userRepository
 from ...user.services.users_service import userService
+from ..repositories.auth_event_repository import log_auth_event
 from .auth_login_handler import lock_message
 
 
@@ -32,7 +33,9 @@ async def change_password_handler(request: Request, body: ChangePasswordRequest)
             locked_until = await userRepository.register_login_failure(
                 user.id, config.login_max_attempts, config.login_lock_minutes * 60
             )
+            await log_auth_event("PASSWORD_CHANGED", user.id, "failed", {"reason": "wrong_current_password"})
             if locked_until is not None:
+                await log_auth_event("ACCOUNT_LOCKED", user.id, "blocked", {"reason": "password_guessing"})
                 await sessionRepository.revoke_all_of_user(user.id, "password_guessing")
                 return error(429, lock_message(locked_until), ValueError(f"user_id={user.id} locked"))
             return error(400, "La contrasena actual es incorrecta", ValueError("wrong current password"))
@@ -43,6 +46,7 @@ async def change_password_handler(request: Request, body: ChangePasswordRequest)
         ensure_strong_password(body.new_password, user.username, user.dni)
         await userRepository.set_password(user.id, hash_password(body.new_password))
         closed = await sessionRepository.revoke_all_of_user(user.id, "password_changed", session_id)
+        await log_auth_event("PASSWORD_CHANGED", user.id, "successful", {"closed_sessions": closed})
         detail = "" if not closed else ". Se cerro tu otra sesion" if closed == 1 else f". Se cerraron tus otras {closed} sesiones"
         return success(200, f"Contrasena actualizada correctamente{detail}")
 

@@ -1,3 +1,5 @@
+from uuid import UUID
+
 from fastapi import Request
 from jwt import PyJWTError
 
@@ -9,6 +11,7 @@ from ....core.security.cookies import ACCESS_TOKEN_COOKIE, clear_auth_cookie
 from ....core.security.jwt import decode_access_token
 from ....core.security.tokens import hash_token
 from ...session.services.sessions_service import sessionService
+from ..repositories.auth_event_repository import log_auth_event
 
 
 async def logout_handler(request: Request):
@@ -24,6 +27,7 @@ async def logout_handler(request: Request):
                 user_agent=request.headers.get("user-agent"),
             )
             await sessionService.revoke_by_token(hash_token(token), "logout")
+            await log_auth_event("LOGOUT", UUID(payload["sub"]), "successful")
         except PyJWTError:
             pass
         except Exception as err:

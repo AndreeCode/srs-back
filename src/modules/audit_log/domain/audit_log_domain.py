@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, Literal, Optional
 from uuid import UUID
 
-AuditAction = Literal["INSERT", "UPDATE", "DELETE"]
+AuditAction = Literal["INSERT", "UPDATE", "DELETE", "LOGIN", "LOGIN_FAILED", "LOGOUT", "PASSWORD_CHANGED", "ACCOUNT_LOCKED"]
 
 
 @dataclass
